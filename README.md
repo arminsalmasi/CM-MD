@@ -1,2 +1,5 @@
 # CM-MD
-Molecular dynamics code. assignment in Computational methods in materials science. In Fortran and Python.
+Molecular dynamics code. 
+Assignment in Computational methods in materials science. 
+In Fortran/Python.
+In matlab.
