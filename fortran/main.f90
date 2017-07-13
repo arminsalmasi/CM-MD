@@ -13,9 +13,11 @@
 
 Program MD
   
-  use md_datastructure
-
+  use datastructure
+  use monitor 
+  
   write(*,*) 'This is a simple fortran MD code'
-
+  call get_input(t, dt, temp, pot_typ, nums_atms, &
+                         N, atm_nums, atm_masses)
 
 end program MD
