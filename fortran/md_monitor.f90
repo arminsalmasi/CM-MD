@@ -4,29 +4,23 @@ module monitor
   
   contains
   
-   subroutine get_input(t, dt, temp, pot_typ, nums_atms, &
-                         N, atm_nums, atm_masses)
+   subroutine get_input(t, dt, tmp, pot_typ, atm_nums, nums_atms, atm_masses, box_vol)
      
-     integer :: pot_typ &
-              , N_atms  &
-              , N_spcs  &
-              , N_tstps &
-              ,i
-     
+     integer :: pot_typ
+  
      real(dp):: t    &
-          , dt   &
-          , Tmp        
+              , dt   &
+              , Tmp  &
+              , box_vol       
  
-     integer, allocatable :: atm_nums(:) &
-                           , nums_atms(:)  !atomicnumberslist 
+     integer, allocatable :: atm_nums(:) &  ! list of atomic numbers of all species
+                           , nums_atms(:)   ! list of numbers of atoms of each species
 
-     real(dp), allocatable :: atm_masses(:)
+     real(dp), allocatable :: atm_masses(:) ! list of atmic mass of each especies  
 
-
-
-     N_spcs = 2                
+     N_spcs = 2 ! number of species \must be read from the monitor                           
      
-     allocate(atm_nums(N_spcs))
+     allocate(atm_nums(N_spcs)) 
      allocate(nums_atms(N_spcs))
      allocate(atm_masses(N_spcs))
 
@@ -41,24 +35,10 @@ module monitor
 
      nums_atms = (/5, 5/)
      
-     N_atms = sum(nums_atms)
-     
      atm_nums = (/22, 27/)
 
      atm_masses = (/7.9485017e-23, 9.7860864e-23/)
-     
-     N_tstps = floor(t/dt)
-     write(*,*) N_tstps 
-     
-     allocate(tmstp(N_tstps))
-     
-     
-     do i = 1, size(tmstp)
-       allocate(tmstp(i)%xyz(N_atms,3))
-       allocate(tmstp(i)%vel(N_atms,3))
-       allocate(tmstp(i)%acc(N_atms,3))
-    end do
-
+    
    end subroutine get_input
 
 

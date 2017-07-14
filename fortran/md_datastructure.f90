@@ -8,11 +8,12 @@ module datastructure
   qp = selected_real_kind(2*precision(1.0_dp))
     
 
-  real(dp) :: t,   & ! time step lenght [real-dp]
-              dt,  & ! simulation time [real-dp]
-              Tmp    ! temperature [real-dp] 
+  real(dp) :: t   &    ! time step lenght [real-dp]
+            , dt  &    ! simulation time [real-dp]
+            , Tmp &    ! temperature [real-dp] 
+            ,  box_vol !volume of the simulation box
   
-  integer :: pot_typ ! potentiel type [int] : 
+ integer :: pot_typ ! potentiel type [int] : 
                       !   1-Lennard-Jones
                       !   2-Embeded Atomic Method
 

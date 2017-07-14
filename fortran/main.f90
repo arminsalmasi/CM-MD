@@ -14,10 +14,13 @@
 Program MD
   
   use datastructure
-  use monitor 
+  use monitor
+  use utilities 
   
   write(*,*) 'This is a simple fortran MD code'
-  call get_input(t, dt, temp, pot_typ, nums_atms, &
-                         N, atm_nums, atm_masses)
-
+  
+  call get_input(t, dt, tmp, pot_typ, atm_nums, nums_atms, atm_masses, box_vol)
+  
+  call allocate_dtyp(t,dt)
+     
 end program MD
