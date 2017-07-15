@@ -21,6 +21,8 @@ Program MD
   
   call get_input(t, dt, tmp, pot_typ, atm_nums, nums_atms, atm_masses, box_vol)
   
-  call allocate_dtyp(t,dt)
+  call do_allocate_dtyp(t,dt)
+  
+  call do_loop_tstps(t, dt)
      
 end program MD
