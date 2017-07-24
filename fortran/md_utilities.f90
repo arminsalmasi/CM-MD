@@ -29,16 +29,19 @@ module utilities
    !   in tstp=0:
    !   in 0<tstp<N_tstp
 
-   integer :: j,seed
-     
+   integer :: j,seed(1)
+   real :: r(3) 
+   
+     seed = (/3/)
+     call RANDOM_SEED(PUT=seed)     
      do i= 0 , N_tstps
        if (i == 0) then
          ! TODO : intialize tstp 0 
          ! call do_rand_xyz()
          seed = 86456
          do j = 1, N_atms
-           call srand(seed) 
-           print* , j, rand(seed)*((vol_box)**(1/3))
+           call random_number(r) 
+           print* , j, r!*((vol_box)**(1/3))
          end do 
          ! call do_rand_vels()
        else
