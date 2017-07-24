@@ -18,11 +18,17 @@ Program MD
   use utilities 
   
   write(*,*) 'This is a simple fortran MD code'
-  
-  call get_input(t, dt, tmp, pot_typ, atm_nums, nums_atms, atm_masses, box_vol)
-  
-  call do_allocate_dtyp(t,dt)
-  
-  call do_loop_tstps(t, dt)
-     
+
+! Read from input: 
+  ! t, dt, tmp, pot_typ, atm_nums, nums_atms, atm_masses, box_vol
+  call get_input()
+
+! allocate tmstp datatype vector
+! allocate all vector fileds of all cells of tmstp vector
+  call do_allocate_dtyp()
+
+! loops overtime steps
+  call do_loop_tstps()
+
+    
 end program MD

@@ -1,28 +1,19 @@
 module utilities
-
+  
   use datastructure
-
+  
   contains  
-   !##########################################################
-   subroutine do_allocate_dtyp(t,dt)
-   ! input t: simulation time 
-   ! input dt: prescribed lenght of timesteps
-   ! allocates vector of datatype by t/dt=# of timesteps
-   
-      integer :: N_tstps & ! number of timesteps
-               , i         ! counter variable
-      
-      real(dp):: t  & ! simulation time
-               , dt   ! lenght of timesteps   
-      
-      ! allocate the tmstp vector by N_tstp = t/dt
-      N_tstps = floor(t/dt)
-            
+!##########################################################
+    subroutine do_allocate_dtyp()
+
+    ! allocate tmstp datatype vector
+    ! allocate all vector fileds of all cells of tmstp vector
+    
       allocate(tmstp(N_tstps))
       
-      ! loop over all timesteps to allocate variables in 
-      ! the tmstp elements(datatpe)
-      do i = 1, size(tmstp) 
+    ! loops over all timesteps to allocate variables in 
+    ! the tmstp elements(datatpe)
+      do i = 1, N_tstps 
         allocate(tmstp(i)%xyz(N_atms,3)) ! N*3 matrix
         allocate(tmstp(i)%vel(N_atms,3)) ! N*3 matrix
         allocate(tmstp(i)%acc(N_atms,3)) ! N*3 matrix
@@ -30,34 +21,34 @@ module utilities
       
    end subroutine do_allocate_dtyp
    
-   !##########################################################
+!##########################################################
    
-   subroutine do_loop_tstps(t, dt)
-   ! input t: simulation time 
-   ! input dt: prescribed lenght of timesteps
+   subroutine do_loop_tstps()
+
    ! loops over all timesteps(N_tstp=t/dt)
    !   in tstp=0:
    !   in 0<tstp<N_tstp
-	
-	  integer N_tstp
 
-    real(dp):: t  & ! simulation time
-             , dt   ! lenght of timesteps
-
-	  N_tstp = floor(t/dt)
-    
-    !loop over all timesteps
-	  do i= 0 , N_tstp
-	    if (i == 0) then
-	      write(*,*) i
-		  ! TODO : intialize tstp 0 
-	    else
-	      write(*,*) i
-		  ! TODO : do_md
-	    end if
-	  end do
-	  
-	end subroutine do_loop_tstps
+   integer :: j,seed
+     
+     do i= 0 , N_tstps
+       if (i == 0) then
+         ! TODO : intialize tstp 0 
+         ! call do_rand_xyz()
+         seed = 86456
+         do j = 1, N_atms
+           call srand(seed) 
+           print* , j, rand(seed)*((vol_box)**(1/3))
+         end do 
+         ! call do_rand_vels()
+       else
+         ! TODO : do md on each timestep
+         ! do_md()
+         ! save_tstp() 
+       end if
+     end do
+     
+   end subroutine do_loop_tstps
   
   !##########################################################
 
