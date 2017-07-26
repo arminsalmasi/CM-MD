@@ -1,98 +1,143 @@
-module utilities
+MODULE utilities
   
-  use datastructure
+  !use datastructure
+  !use random
+    
+  REAL, PRIVATE    :: zero = 0.0, half = 0.5, one = 1.0, two = 2.0
+  PRIVATE          :: integral
   
-  contains  
-!##########################################################
+  CONTAINS  
+   
+  !##########################################################
+   
+   SUBROUTINE do_genRand(r,m,j)
     
-    subroutine do_allocate_dtyp(tmstp)
-    
-    ! allocate tmstp datatype vector
-    ! allocate all vector fileds of all cells of tmstp vector
-    
-      type(tmstp_holder), dimension(:), allocatable :: tmstp
-      allocate(tmstp(0:floor(t/dt)))
-     
-    ! loops over all timesteps to allocate variables in 
-    ! the tmstp elements(datatpe)
-      do i = 0,N_tstps 
-        allocate(tmstp(i)%xyz(N_atms,3)) ! N*3 matrix
-        allocate(tmstp(i)%vel(N_atms,3)) ! N*3 matrix
-        allocate(tmstp(i)%acc(N_atms,3)) ! N*3 matrix
-      end do
-      
-    end subroutine do_allocate_dtyp
-   
-   !##########################################################
-   
-   subroutine do_loop_tstps(tmstp)
-   
-  
+    !
+    ! 
+    ! 
  
-   ! loops over all timesteps(N_tstp=t/dt)
-   !   in tstp=0:
-   !   in 0<tstp<N_tstp
- 
-
-     type(tmstp_holder), dimension(:), allocatable :: tmstp
-     integer :: i ,j 
-     real :: r(3)
- 
-     do i= 0 , N_tstps
-       if (i == 0) then
-         ! TODO : intialize tstp 0 
-         ! call do_rand_xyz()
-         do j = 1, N_atms
-           
-           ! randomize xyz of atoms in cell 0 
-           call do_genRand(r,3,j)
-           tmstp(i)%xyz(j,:) = r(:) * ( box_vol**(1.0/3.0))
-           
-           ! randomize velocities of atoms in cell zero
-           !vstd = sqrt( tmp * kb / atm_masses(j) )
-           !call do_genRand(r,3,j)
-           !tmstp(i)%vel(j,:) = 0 + r * vstd
-
-
-         end do 
-       else
-         ! TODO : do md on each timestep
-         ! do_md()
-!         print *, tmstp(i)%xyz(j,:)            
-         ! save_tstp() 
-       end if
-     end do
+     IMPLICIT NONE
      
-   end subroutine do_loop_tstps
-   
-   !##########################################################
-   
-   subroutine do_genRand(r,m,j)
-   
-   !
-   !
-   !
-     integer :: i, j, n, clock
-     integer, allocatable :: seed(:)
-     real :: r(m)
+     INTEGER :: i, j, m, n, clock
+     INTEGER, ALLOCATABLE :: seed(:)
+     REAL :: r(m)
      
-     call random_seed(size=n)
-     allocate(seed(n))
-     call system_clock(count=clock)
+     CALL RANDOM_SEED(SIZE=n)
+     ALLOCATE(seed(n))
+     CALL SYSTEM_CLOCK(COUNT=clock)
      clock = clock * j 
      seed = clock + 37 * (/ (i - 1, i = 1, n) /)
-     call random_seed(put=seed)
-     call random_number(r)
-     deallocate(seed)
-   end subroutine do_genRand
+     CALL RANDOM_SEED(PUT=seed)
+     call RANDOM_NUMBER(r)
+     DEALLOCATE(seed)
+
+   END SUBROUTINE do_genRand
    
+  !########################################################## 
+  
+  FUNCTION random_normal(n)
+  
+  ! Adapted from the following Fortran 77 code
+  !      ALGORITHM 712, COLLECTED ALGORITHMS FROM ACM.
+  !      THIS WORK PUBLISHED IN TRANSACTIONS ON MATHEMATICAL SOFTWARE,
+  !      VOL. 18, NO. 4, DECEMBER, 1992, PP. 434-435.
+  
+  !  The function random_normal() returns a normally distributed pseudo-random
+  !  number with zero mean and unit variance.
+  
+  !  The algorithm uses the ratio of uniforms method of A.J. Kinderman
+  !  and J.F. Monahan augmented with quadratic bounding curves.
+  
+    IMPLICIT NONE
+  
+  ! local variables
+    INTEGER  :: n , i
+    REAL :: random_normal(n)
+    REAL     :: s = 0.449871, t = -0.386595, a = 0.19600, b = 0.25472,           &
+                r1 = 0.27597, r2 = 0.27846, u, v, x, y, q , mean , sd
+  
+  !     Generate P = (u,v) uniform in rectangle enclosing acceptance region
+  
+    DO i =  1 , n
+      DO
+        CALL RANDOM_NUMBER(u)
+        CALL RANDOM_NUMBER(v)
+        v = 1.7156 * (v - half)
+    
+    !     Evaluate the quadratic form
+        x = u - s
+        y = ABS(v) - t
+        q = x**2 + y*(a*y - b*x)
+    
+    !     Accept P if inside inner ellipse
+        IF (q < r1) EXIT
+    !     Reject P if outside outer ellipse
+        IF (q > r2) CYCLE
+    !     Reject P if outside acceptance region
+        IF (v**2 < -4.0*LOG(u)*u**2) EXIT
+    
+      END DO
+
+      random_normal(i) = v/u
+
+    END DO
+  
+  
+  
+  ! Check mean and standard deviation                 
+    mean = SUM(random_normal)/n              
+    sd = SQRT(SUM((random_normal - mean)**2)/n)
+  
+    WRITE(*, "(A,F8.6)") "Mean = ", mean            
+    WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd
+    
+    
+  !     Return ratio of P's coordinates as the normal deviate
+  
+    RETURN
+  
+  END FUNCTION random_normal
+
+  !########################################################## 
+  
+  FUNCTION rand_normal2(n) 
+  
+  ! https://rosettacode.org/wiki/Random_numbers#Fortran 
+  
+    IMPLICIT NONE
+
+    INTEGER :: i, n
+    REAL :: array(n), rand_normal2(n), pi, temp, mean = 1.0, sd = 0.5
+     
+    pi = 4.0*ATAN(1.0)
+    CALL RANDOM_NUMBER(array) ! Uniform distribution
+     
+  ! Now convert to normal distribution
+    DO i = 1, n-1, 2
+      temp = sd * SQRT(-2.0*LOG(array(i))) * COS(2*pi*array(i+1)) + mean
+      array(i+1) = sd * SQRT(-2.0*LOG(array(i))) * SIN(2*pi*array(i+1)) + mean
+      array(i) = temp
+    END DO
+     
+  ! Check mean and standard deviation
+    mean = SUM(array)/n
+    sd = SQRT(SUM((array - mean)**2)/n)
+     
+    WRITE(*, "(A,F8.6)") "Mean = ", mean
+    WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd
+      
+    rand_normal2(:) = array(:)
+     
+    RETURN
+  END FUNCTION rand_normal2
+  
   !########################################################## 
 
 
-end module utilities
 
 
 
+END MODULE utilities
 
 
 

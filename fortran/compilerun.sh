@@ -1,6 +1,6 @@
 #!/bin/bash
 
-gfortran md_datastructure.f95 md_monitor.f95 md_utilities.f95 main.f95 -o out.x
+gfortran md_datastructure.f90 md_monitor.f90  md_utilities.f90 md_md.f90 main.f90 -o out.x
 
 rm *.mod
 

@@ -11,27 +11,28 @@
 ! Feel free to use any part of tyhe code.
 
 
-Program MD
+PROGRAM molecular_dynamics
   
-  use datastructure
-  use monitor
-  use utilities 
+  USE datastructure
+  USE monitor
+  USE utilities 
+  USE md  
 
-  type(tmstp_holder), dimension(:), allocatable :: tmstp 
+  TYPE(tmstp_holder), DIMENSION(:), ALLOCATABLE :: tmstp 
  
-  write(*,*) 'This is a simple fortran MD code'
+  WRITE(*,*) 'This is a simple fortran MD code'
 
 ! Read from input: 
   ! t, dt, tmp, pot_typ, atm_nums, nums_atms, atm_masses, box_vol
-  call get_input()
+  CALL get_input()
 
 
 ! allocate tmstp datatype vector
 ! allocate all vector fileds of all cells of tmstp vector
-  call do_allocate_dtyp(tmstp)
+  CALL do_allocate_dtyp(tmstp)
 
 ! loops overtime steps
-  call do_loop_tstps(tmstp)
+  CALL do_loop_tstps(tmstp)
 
     
-end program MD
+END PROGRAM molecular_dynamics
