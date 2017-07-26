@@ -42,6 +42,6 @@ module datastructure
   
   
   ! vector of tmstp_hlolders
-  type(tmstp_holder), dimension(:), allocatable :: tmstp 
+  !type(tmstp_holder), dimension(0:), allocatable :: tmstp 
   
 end module datastructure

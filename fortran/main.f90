@@ -16,19 +16,22 @@ Program MD
   use datastructure
   use monitor
   use utilities 
-  
+
+  type(tmstp_holder), dimension(:), allocatable :: tmstp 
+ 
   write(*,*) 'This is a simple fortran MD code'
 
 ! Read from input: 
   ! t, dt, tmp, pot_typ, atm_nums, nums_atms, atm_masses, box_vol
   call get_input()
 
+
 ! allocate tmstp datatype vector
 ! allocate all vector fileds of all cells of tmstp vector
-  call do_allocate_dtyp()
+  call do_allocate_dtyp(tmstp)
 
 ! loops overtime steps
-  call do_loop_tstps()
+  call do_loop_tstps(tmstp)
 
     
 end program MD
