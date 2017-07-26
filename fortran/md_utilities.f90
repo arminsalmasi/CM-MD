@@ -1,6 +1,6 @@
 MODULE utilities
   
-  !use datastructure
+  use datastructure
   !use random
     
   REAL, PRIVATE    :: zero = 0.0, half = 0.5, one = 1.0, two = 2.0
@@ -20,7 +20,7 @@ MODULE utilities
      
      INTEGER :: i, j, m, n, clock
      INTEGER, ALLOCATABLE :: seed(:)
-     REAL :: r(m)
+     REAL(dp) :: r(m)
      
      CALL RANDOM_SEED(SIZE=n)
      ALLOCATE(seed(n))
@@ -52,8 +52,8 @@ MODULE utilities
   
   ! local variables
     INTEGER  :: n , i
-    REAL :: random_normal(n)
-    REAL     :: s = 0.449871, t = -0.386595, a = 0.19600, b = 0.25472,           &
+    REAL(dp) :: random_normal(n)
+    REAL(dp)     :: s = 0.449871, t = -0.386595, a = 0.19600, b = 0.25472,           &
                 r1 = 0.27597, r2 = 0.27846, u, v, x, y, q , mean , sd
   
   !     Generate P = (u,v) uniform in rectangle enclosing acceptance region
@@ -107,7 +107,7 @@ MODULE utilities
     IMPLICIT NONE
 
     INTEGER :: i, n
-    REAL :: array(n), rand_normal2(n), pi, temp, mean = 1.0, sd = 0.5
+    REAL(dp) :: array(n), rand_normal2(n), pi, temp, mean = 1.0, sd = 0.5
      
     pi = 4.0*ATAN(1.0)
     CALL RANDOM_NUMBER(array) ! Uniform distribution
@@ -123,8 +123,8 @@ MODULE utilities
     mean = SUM(array)/n
     sd = SQRT(SUM((array - mean)**2)/n)
      
-    WRITE(*, "(A,F8.6)") "Mean = ", mean
-    WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd
+    !WRITE(*, "(A,F8.6)") "Mean = ", mean
+    !WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd
       
     rand_normal2(:) = array(:)
      
@@ -132,7 +132,26 @@ MODULE utilities
   END FUNCTION rand_normal2
   
   !########################################################## 
-
+  SUBROUTINE do_calcT(t,vel)
+    
+    IMPLICIT NONE
+    
+    REAL(dp)::  vel(:,:), vel_sqr(N_atms), tvec(N_atms),t
+    INTEGER :: dgr_frdm
+    
+    dgr_frdm = 3 * N_atms - 3
+    t = 0
+    !DO i = 1 , N_atms
+      vel_sqr(:) = vel(:,1)**2 + vel(:,2)**2 + vel(:,3)**2 
+      !print *, vel_sqr      
+      tvec(:)  =  (atm_masses(:)* vel_sqr(:)) / (kb * dgr_frdm) 
+      print *, tvec
+      t = sum(tvec)
+      print *, t
+    !END DO
+    
+    RETURN
+  END SUBROUTINE do_calcT
 
 
 

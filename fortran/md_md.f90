@@ -36,42 +36,46 @@ contains
    !   in 0<tstp<N_tstp
    
    
-     type(tmstp_holder), dimension(:), allocatable :: tmstp
-     integer :: i ,j 
-     real :: r(3)
+     TYPE(tmstp_holder), DIMENSION(:), ALLOCATABLE :: tmstp
+     INTEGER :: i ,j 
+     REAL(dp) :: r(3) , vstd, tempT
  
-     do i= 0 , N_tstps
-       if (i == 0) then
+     DO i= 0 , N_tstps
+       IF (i == 0) then
          ! TODO : intialize tstp 0 
          ! call do_rand_xyz()
-         do j = 1, N_atms
+         DO j = 1, N_atms
            
            ! randomize xyz of atoms in cell 0 
            call do_genRand(r,3,j)
+           r(:)=0
            tmstp(i)%xyz(j,:) = r(:) * ( box_vol**(1.0/3.0))
            
            ! randomize velocities of atoms in cell zero
-             r(:) = random_normal(5) !Stanford algorithm
+             !(:) = random_normal(5) !Stanford algorithm
              !print *, 'first algorithm', r
-             
-             r(:) = rand_normal2(5) ! open source from roseta code
-           !print *, 'second algorthem' ,r
- 
-           !vstd = sqrt( tmp * kb / atm_masses(j) )
-           !call do_genRand(r,3,j)
-           !tmstp(i)%vel(j,:) = 0 + r * vstd
-         
+             r(:) = 0             
+             r(:) = rand_normal2(3) ! open source from roseta code
+                          
+             vstd = sqrt( tmp * kb / atm_masses(j) )
+             tmstp(i)%vel(j,:) = 0 + r(:) * vstd  
+             !print *, tmstp(i)%vel(j,:) , 'vstd', vstd
+            
+           
       
-         end do 
-       else
+         END DO
+             print *,'velocity', tmstp(i)%vel 
+             CALL do_calcT(tempT, tmstp(i)%vel)
+             PRINT *, tempT, tmp
+       ELSE
          ! TODO : do md on each timestep
          ! do_md()
 !         print *, tmstp(i)%xyz(j,:)            
          ! save_tstp() 
-       end if
-     end do
+       END IF
+     END DO
      
-   end subroutine do_loop_tstps
+   END SUBROUTINE do_loop_tstps
    
    !##########################################################
 

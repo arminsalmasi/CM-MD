@@ -11,6 +11,8 @@ module datastructure
             , dt     &! simulation time [real-dp]
             , Tmp    &! temperature [real-dp] 
             , box_vol !volume of the simulation box
+  
+  REAL(dp), PARAMETER :: kb = 1.38064852e-23 
    
   integer :: pot_typ ! potentiel type [int] : 
                        ! 1-Lennard-Jones
