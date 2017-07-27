@@ -12,7 +12,7 @@ MODULE utilities
    
    SUBROUTINE do_genRand(r,m,j)
     
-    !
+    !ToDo : no newwd to pass m
     ! 
     ! 
  
@@ -103,14 +103,28 @@ MODULE utilities
   FUNCTION rand_normal2(n) 
   
   ! https://rosettacode.org/wiki/Random_numbers#Fortran 
+  ! Based on Box–Muller transform
+  ! More ifor in : 
+  ! http://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
+  ! https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+
   
     IMPLICIT NONE
 
-    INTEGER :: i, n
-    REAL(dp) :: array(n), rand_normal2(n), pi, temp, mean = 1.0, sd = 0.5
+    INTEGER  :: i               & ! Loop variabel
+              , n                 ! Lenght of array = number of random samples / from input
+    
+    REAL(dp) :: array(n)        &
+              , rand_normal2(n) & ! Function Return :: dp random numbers
+              , pi              & ! Pi number
+              , temp            & ! just a holder
+              , mean = 0.0      & ! from http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html //equlized with randn function in matlab 
+              , sd = 1.0          ! from http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html //equlized with randn function in matlab 
      
     pi = 4.0*ATAN(1.0)
-    CALL RANDOM_NUMBER(array) ! Uniform distribution
+    
+  ! CALL RANDOM_NUMBER(array) ! Uniform distribution
+    CALL do_genRand(array,n,1)
      
   ! Now convert to normal distribution
     DO i = 1, n-1, 2
@@ -127,7 +141,7 @@ MODULE utilities
     !WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd
       
     rand_normal2(:) = array(:)
-     
+ 
     RETURN
   END FUNCTION rand_normal2
   
@@ -136,21 +150,19 @@ MODULE utilities
     
     IMPLICIT NONE
     
-    REAL(dp)::  vel(:,:), vel_sqr(N_atms), tvec(N_atms),t
-    INTEGER :: dgr_frdm
+    REAL(dp)::  vel(:,:), vel_sqr,t
+    INTEGER :: dgr_frdm , i
     
     dgr_frdm = 3 * N_atms - 3
     t = 0
-    !DO i = 1 , N_atms
-      vel_sqr(:) = vel(:,1)**2 + vel(:,2)**2 + vel(:,3)**2 
+    DO i = 1 , N_atms
+      vel_sqr = vel(i,1)**2 + vel(i,2)**2 + vel(i,3)**2 
       !print *, vel_sqr      
-      tvec(:)  =  (atm_masses(:)* vel_sqr(:)) / (kb * dgr_frdm) 
-      print *, tvec
-      t = sum(tvec)
-      print *, t
-    !END DO
+      t = t +  (atm_masses(i)* vel_sqr) / (kb * dgr_frdm) 
+    END DO      
     
     RETURN
+   
   END SUBROUTINE do_calcT
 
 

@@ -1,0 +1,12 @@
+To set the seed you need call random_seed(put=seed) where seed is a rank 1 array of size at least n where n - again processor-dependent - is given by call random_seed(size=n). From your call i holds this value. See 13.7.136 of F2008.
+
+A common way is:
+integer, allocatable :: seed(:) integer size call random_seed(size=size) allocate(seed(size)) ! set seed(:) somehow call random_seed(put=seed) 
+
+Use of srand() is non-standard.
+https://stackoverflow.com/questions/18754438/generating-random-numbers-in-a-fortran-module
+
+
+http://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
+https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+

@@ -27,7 +27,6 @@ module monitor
          
       allocate(atm_nums(N_spcs)) 
       allocate(nums_atms(N_spcs))
-      allocate(atm_masses(N_spcs))
       
       t = 1e-10 
       
@@ -40,14 +39,23 @@ module monitor
       atm_nums = (/22, 27/)
       
       nums_atms = (/5, 5/)
-    
-      atm_masses = (/7.9485017e-23, 9.7860864e-23/)
+      
+          
+      N_atms = sum(nums_atms)
+      
+      allocate(atm_masses(N_atms))
+      
+      DO i = 1 , nums_atms(1)
+         atm_masses(i)  = 7.9485017e-23
+      END DO
+      DO i = nums_atms(2)+1 , nums_atms(1)*2
+        atm_masses(i) = 9.7860864e-23
+      END DO
     
       box_vol = 1e-15   
    
       N_tstps = floor(t/dt)
       
-      N_atms = sum(nums_atms)
        
     end subroutine get_input
 !##########################################################
