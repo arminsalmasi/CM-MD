@@ -17,11 +17,18 @@ contains
      
     ! loops over all timesteps to allocate variables in 
     ! the tmstp elements(datatpe)
-      do i = 0,N_tstps 
-        allocate(tmstp(i)%xyz(N_atms,3)) ! N*3 matrix
-        allocate(tmstp(i)%vel(N_atms,3)) ! N*3 matrix
-        allocate(tmstp(i)%acc(N_atms,3)) ! N*3 matrix
-      end do
+      DO i = 0,N_tstps 
+        ALLOCATE(tmstp(i)%xyz(N_atms,3)) ! N*3 matrix
+        ALLOCATE(tmstp(i)%vel(N_atms,3)) ! N*3 matrix
+        ALLOCATE(tmstp(i)%acc(N_atms,3)) ! N*3 matrix
+        ALLOCATE(tmstp(i)%frc(N_atms,3)) ! N*3 matrix
+
+        tmstp(i)%xyz(:,:) = 0 
+        tmstp(i)%vel(:,:) = 0       
+        tmstp(i)%acc(:,:) = 0
+        tmstp(i)%frc(:,:) = 0
+ 
+      END DO
       
     end subroutine do_allocate_dtyp
    
@@ -36,33 +43,41 @@ contains
    
      TYPE(tmstp_holder), DIMENSION(:), ALLOCATABLE :: tmstp
      INTEGER :: i ,j , k
-     REAL(dp) :: r(3) , vstd, tempT, vcm , vcm_tmp(n_atms,3), vel_scale, tmp_scale
+     !REAL(dp) :: r(3) , vstd, tempT, vcm , vcm_tmp(n_atms,3), vel_scale, tmp_scale
  
      DO i= 0 , N_tstps
        IF (i == 0) then
                          
-         ! randomize xyz of atoms in cell 0 
+       ! randomize xyz of atoms in cell 0 
                                !print *, tmstp(i)%xyz    
          CALL do_rand_xyz(tmstp(i)%xyz)
              
-         ! randomize velocities of atoms in cell zero
+       ! randomize velocities of atoms in cell zero
          CALL do_rand_vel(tmstp(i)%vel)          
                                !CALL do_calcT(tempT, tmstp(i)%vel)
                                !PRINT *, 'tempT= ', tempT,'T= ', tmp
          
-         ! fix center of mass
-                               !print *,tmstp(i)%vel(1,:)
+       ! fix center of mass
          CALL do_fix_com(tmstp(i)%vel)
-                               !print *,tmstp(i)%vel(1,:)
         
-         ! Scale velocities with initial temperature
+       ! Scale velocities with initial temperature
            CALL do_scale_vel(tmstp(i)%vel)
+                                !print *,tmstp(i)%vel(1,:)
+       ! ToDo: question? should values travers to i+1?       
+   
        ELSE
-         ! TODO : do md on each timestep
-         ! do_md()
-!         print *, tmstp(i)%xyz(j,:)            
-         ! save_tstp() 
+         ! TODO : velocityverlet?
+         
+         CALL do_velverlet( tmstp(i)%xyz, tmstp(i)%vel, tmstp(i)%acc, tmstp(i)%frc, atm_masses, dt )  
+         
+         !tmstp(i)%frc(1,:) =1+1.5* tmstp(i)%frc(1,:)
+          
+         !print *, tmstp(i)%vel(1,:)
+
+
+         ! write tstp data to a file 
        END IF
+                               print *, tmstp(i)%vel(1,:)
      END DO
      
    END SUBROUTINE do_loop_tstps
@@ -148,6 +163,26 @@ contains
    END SUBROUTINE do_scale_vel                   
 
    !##########################################################
+   SUBROUTINE do_velVerlet(xyz, vel, acc, frc, masses, dt);
+       
+     IMPLICIT NONE              
+     
+     INTEGER :: i
+     REAL(dp) :: xyz(:,:), vel(:,:), acc(:,:), frc(:,:), masses(:), dt 
+     
+     DO i=1 , 3 
+       xyz(:,i) = xyz(:,i) + (vel(:,i) * dt) + (0.5 * acc(:,i) * dt**2);
+     END DO   
+  
+     DO i = 1 , N_atms ! = size(atm_masses)
+        vel(i,:) = vel(i,:) + 0.5 * ( frc(i,:) / masses(i) + acc(i,:)) * dt;
+     END DO
+
+     DO i = 1 , N_atms 
+        acc(i,:) =  frc(i,:) / masses(i);
+     END DO
+
+   END SUBROUTINE do_velVerlet 
     
 end module md
 

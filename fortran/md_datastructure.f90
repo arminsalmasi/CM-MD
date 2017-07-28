@@ -36,11 +36,12 @@ module datastructure
   
   
   ! type tmstp_holder holds all data of a single timestep 
-  type tmstp_holder 
-    real(dp), allocatable :: xyz(:,:) ! coordinate [real-dp(N*3)]
-    real(dp), allocatable :: vel(:,:) ! velocitie [real-dp(N*3)]
-    real(dp), allocatable :: acc(:,:) ! acceleration [real-dp(N*3)]
-  end type tmstp_holder
+  TYPE tmstp_holder 
+    REAL(dp), ALLOCATABLE :: xyz(:,:) &! coordinate [real-dp(N*3)]
+                           , vel(:,:) &! velocitie [real-dp(N*3)]
+                           , acc(:,:) &! acceleration [real-dp(N*3)]
+                           , frc(:,:)  ! forces [real-dp[N]]
+  END TYPE tmstp_holder
   
   
   ! vector of tmstp_hlolders
