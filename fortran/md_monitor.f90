@@ -52,7 +52,6 @@ USE global
 	  atNums = (/27, 28/) ! 27=Co, 28=Ni
 	  nP = sum(nAt)
 	  allocate(atMas(nP))
-      7.9485017e-23
 	  atMas(1:nAt(1))  = 9.786093775e-23 ! Cobalt
       atMas(nAt(1)+1: nP) = 9.746275017e-23 ! gr - Ni
 	  

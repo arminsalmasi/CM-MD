@@ -28,14 +28,20 @@ PROGRAM molecular_dynamics
             , volume				&! volume of the simulation box
 		    , samp_interval         &! time between saving data (purpes = speed up)
 			, temperature_temp
-
-			
+	
   REAL(dp), ALLOCATABLE :: atomic_masses(:)  &! atomic mass of species 
                          , xyz(:,:)          &! coordinate 
                          , vel(:,:)          &! velocitie
                          , acc(:,:)          &! acceleration
-                         , frc(:,:)           ! forces
-  	
+                         , frc(:,:)          &! forces
+ 						 , F1   (:)          &   
+						 , rho1 (:)          &
+						 , F2   (:)          &
+						 , rho2 (:)          &
+						 , phi11(:)          &
+						 , phi21(:)          &
+						 , phi22(:)
+	
   INTEGER :: n_particles	     &! total number of atoms in the system
            , n_timestps 	     &! number of timesteps
            , n_species   		 &! number of species in the system
@@ -84,7 +90,9 @@ PROGRAM molecular_dynamics
   vel(:,:) = 0       
   acc(:,:) = 0
   frc(:,:) = 0
-
+  
+   CALL do_get_EAMPotData(F1, rho1, F2, rho2, phi11, phi21, phi22)
+  
    DO i= 0 , 3!n_timestps
      IF (i == 0) then          
      ! randomize xyz of atoms in cell 0 
@@ -109,14 +117,16 @@ PROGRAM molecular_dynamics
 	 ! save sample time step
    
      ELSE
-       CALL do_calcU(u , xyz, masses)
+       !CALL do_calcU(u , xyz, masses)
 	   ! velocityverlet
        CALL do_velverlet( n_particles, xyz, vel, acc, frc, atomic_masses, dt )  
        ! update forces
+	   
        !frc(1,:) =1+1.5* tmstp(i)%frc(1,:)
        ! ToDo: save sample timestep
      END IF
   END DO
+ 
   !ToDo  : print to file
 END PROGRAM molecular_dynamics
 

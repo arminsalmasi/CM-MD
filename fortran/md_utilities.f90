@@ -116,7 +116,7 @@ SUBROUTINE do_scale_vel(vel, T, np, masses )
 END SUBROUTINE do_scale_vel                   
 
 !##########################################################
-SUBROUTINE do_velVerlet(np, u , xyz, vel, acc, frc, masses, dt);
+SUBROUTINE do_velVerlet(np, xyz, vel, acc, frc, masses, dt);
 !##########################################################
      
      IMPLICIT NONE              
@@ -233,17 +233,75 @@ SUBROUTINE do_calcT(temp, vel, np, masses)
 	temp = sum(masses(:) * vel_sqr(:))
     temp = temp / (kb * dof) 
 							!write(*,*) temp   
-  END SUBROUTINE do_calcT
+END SUBROUTINE do_calcT
 !########################################################## 
+!########################################################## 
+SUBROUTINE do_get_EAMPotData(F_rho_1, rho_r_1, F_rho_2, rho_r_2, phi_r11, phi_r21, phi_r22)
+!##########################################################    
+    IMPLICIT NONE
+	
+	INTEGER :: nrho       &
+	         , nr         &
+			 , ix, jx, kx
+	REAL(dp), ALLOCATABLE :: allData(:,:)	&
+	                       , allData_line(:) &
+	                       , F_rho_1(:)&
+	                       , rho_r_1(:)&
+	                       , F_rho_2(:)&
+	                       , rho_r_2(:)&
+	                       , phi_r11(:)&
+	                       , phi_r21(:)&
+	                       , phi_r22(:)
+	REAL(dp) :: drho, dr, cutoff 
+
+	nrho = 5000 
+	drho = 1.299907800000000e-03 
+	nr = 5000 
+	dr = 1.299907800000000e-03 
+	cutoff = 6.499539000000000e+00
+
+	ALLOCATE(allData(1:7000, 1:5))
+	ALLOCATE(allData_line(1: SIZE(allDATA,1)* SIZE(allDATA,2)))
+	ALLOCATE(F_rho_1(nrho))
+	ALLOCATE(rho_r_1(nr))
+	ALLOCATE(F_rho_2(nrho))
+	ALLOCATE(rho_r_2(nr))
+	ALLOCATE(phi_r11(nr))
+	ALLOCATE(phi_r21(nr))
+	ALLOCATE(phi_r22(nr))
+	
+	OPEN(UNIT=22,FILE="pot-Ni-Co-old.dat",FORM="FORMATTED",STATUS="OLD",ACTION="READ")
+	  DO ix = 1 , 7000
+	    READ(22,*) allData(ix,:)
+	  END DO
+	  				!write(*,*) allData(1,:)
+	  				!write(*,*) allData(7000,:)
+	CLOSE(UNIT=22)
+		
+	kx=1
+	do ix = 1 , 7000
+	  do jx = 1 , 5
+		allData_line(kx) = allData(ix,jx)
+		kx=kx+1
+	  end do
+	end do
+					!print*,  allData_line , size(allData_line)
+	F_rho_1 = allData_line(1:5000)
+	rho_r_1 = allData_line(5001:10000)
+	F_rho_2 = allData_line(10001:15000)
+	rho_r_2 = allData_line(15001:20000)
+	phi_r11 = allData_line(20001:25000)
+	phi_r21 = allData_line(25001:30000)
+	phi_r22 = allData_line(30001:35000)
+	
+  END SUBROUTINE do_get_EAMPotData
+!########################################################## 
+
+
 
 END MODULE utilities
 
-
-
-
-
-
-
+ 
  
 !  FUNCTION random_normal(n)
 !  
