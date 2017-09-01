@@ -40,7 +40,8 @@ PROGRAM molecular_dynamics
 						 , rho2 (:)          &
 						 , phi11(:)          &
 						 , phi21(:)          &
-						 , phi22(:)
+						 , phi22(:)          &
+						 , EAM(:)
 	
   INTEGER :: n_particles	     &! total number of atoms in the system
            , n_timestps 	     &! number of timesteps
@@ -91,40 +92,42 @@ PROGRAM molecular_dynamics
   acc(:,:) = 0
   frc(:,:) = 0
   
-   CALL do_get_EAMPotData(F1, rho1, F2, rho2, phi11, phi21, phi22)
+  ! read EAM potential data from Ni-Co eam.alloy file
+  CALL do_get_EAMPotData(F1, rho1, F2, rho2, phi11, phi21, phi22)
   
-   DO i= 0 , 3!n_timestps
-     IF (i == 0) then          
-     ! randomize xyz of atoms in cell 0 
-								!print *, tmstp(i)%xyz    
-       CALL do_rand_xyz(xyz, volume, n_particles)
-								!write(*,*) xyz(:,1)
-								!write(*,*) xyz(:,2)
-								!write(*,*) xyz(:,3)
-     ! randomize velocities of atoms in cell zero
-       CALL do_rand_vel(vel, temperature, n_particles, atomic_masses)          
-								!write(*,*) vel(:,1)	
-								!write(*,*) vel(:,2)	
-								!write(*,*) vel(:,3)	
-								!CALL do_calcT(temperature_temp, vel, n_particles, atomic_masses )
-                                !write(*,*) 'calculated T= ', temperature_temp, 'designated T= ', temperature
-	 ! fix center of mass
-       CALL do_fix_centerOfmass(vel, n_particles, atomic_masses)
-     ! Scale velocities with initial temperature
-
-	 CALL do_scale_vel(vel, temperature, n_particles, atomic_masses)                               
-     ! ToDo: question? should values travers to i+1?       
-	 ! save sample time step
-   
-     ELSE
-       !CALL do_calcU(u , xyz, masses)
-	   ! velocityverlet
-       CALL do_velverlet( n_particles, xyz, vel, acc, frc, atomic_masses, dt )  
-       ! update forces
-	   
-       !frc(1,:) =1+1.5* tmstp(i)%frc(1,:)
-       ! ToDo: save sample timestep
-     END IF
+  DO i= 0 , 3!n_timestps
+    IF (i == 0) then          
+    ! randomize xyz of atoms in cell 0 
+							!print *, tmstp(i)%xyz    
+      CALL do_rand_xyz(xyz, volume, n_particles)
+							!write(*,*) xyz(:,1)
+							!write(*,*) xyz(:,2)
+							!write(*,*) xyz(:,3)
+    ! randomize velocities of atoms in cell zero
+      CALL do_rand_vel(vel, temperature, n_particles, atomic_masses)          
+							!write(*,*) vel(:,1)	
+							!write(*,*) vel(:,2)	
+							!write(*,*) vel(:,3)	
+							!CALL do_calcT(temperature_temp, vel, n_particles, atomic_masses )
+                               !write(*,*) 'calculated T= ', temperature_temp, 'designated T= ', temperature
+	! fix center of mass
+      CALL do_fix_centerOfmass(vel, n_particles, atomic_masses)
+    ! Scale velocities with initial temperature
+  
+	CALL do_scale_vel(vel, temperature, n_particles, atomic_masses)                               
+    ! ToDo: question? should values travers to i+1?       
+	! save sample time step
+  
+    ELSE
+      !CALL do_calcEAM(EAM, xyz, atomic_masses)
+write(*,*) 'I am  here  2'
+	  ! velocityverlet
+      CALL do_velverlet( n_particles, xyz, vel, acc, frc, atomic_masses, dt )  
+      ! update forces
+write(*,*) 'I am  here  3'
+      !frc(1,:) =1+1.5* tmstp(i)%frc(1,:)
+      ! ToDo: save sample timestep
+    END IF
   END DO
  
   !ToDo  : print to file

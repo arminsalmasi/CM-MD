@@ -235,7 +235,6 @@ SUBROUTINE do_calcT(temp, vel, np, masses)
 							!write(*,*) temp   
 END SUBROUTINE do_calcT
 !########################################################## 
-!########################################################## 
 SUBROUTINE do_get_EAMPotData(F_rho_1, rho_r_1, F_rho_2, rho_r_2, phi_r11, phi_r21, phi_r22)
 !##########################################################    
     IMPLICIT NONE
@@ -294,8 +293,42 @@ SUBROUTINE do_get_EAMPotData(F_rho_1, rho_r_1, F_rho_2, rho_r_2, phi_r11, phi_r2
 	phi_r21 = allData_line(25001:30000)
 	phi_r22 = allData_line(30001:35000)
 	
-  END SUBROUTINE do_get_EAMPotData
+END SUBROUTINE do_get_EAMPotData
 !########################################################## 
+!!!SUBROUTINE do_calcEAM(EAM, xyz, masses)
+!!!!##########################################################    
+!!!  IMPLICIT NONE
+!!!  
+!!!  REAL(dp), ALLOCATABLE :: EAM(:)    &
+!!!                         , xyz(:,:)  &
+!!!						 , masses(:) &
+!!!						 , r(:,:)
+!!!  
+!!!  INTEGER :: ix,jx
+!!!  
+!!!  ALLOCATE(EAM(SIZE(masses)))
+!!!  ALLOCATE(r(SIZE(masses),(SIZE(masses)-1 )))
+!!!  DO ix = 1 , SIZE(xyz,1)
+!!!    DO jx = 1 , SIZE(xyz,1)
+!!!	  !IF (ix/=jx) THEN
+!!!		r(ix, jx) = sqrt( sum( (xyz(ix,:) - xyz(jx,:))**2))
+!!!											print*, ix , jx
+!!!											print*, r(ix, jx)
+!!!											!print*,xyz(ix,:)
+!!!											!print*,xyz(jx,:)
+!!!											!print*,r(ix, jx)
+!!!											!print*, '----'
+!!!	  !END IF
+!!!    END DO
+!!!  END DO
+!!!write(*,*) 'I am  here  1'
+!!!EAM(:)=0
+!!!print*, EAM  
+!!!  
+!!!  
+!!!END SUBROUTINE do_calcEAM
+!!!!##########################################################    
+
 
 
 
