@@ -14,15 +14,14 @@ SUBROUTINE do_rand_xyz(xyz, V, np)
 !##########################################################   
      INTEGER :: j
      REAL(dp) :: r(3)     &! random number 
-	           , xyz(:,:) &! position n*3
-			   , V         ! volume
-			   
-					!write(*,*) xyz(:,:)
+               , xyz(:,:) &! position n*3
+               , V         ! volume
+   
      DO j = 1, np
        call do_genRand(r,3,j)
-					!write(*,*) 'r = ', r
- 	   xyz(j,:) = r(:) * ( V **(1.0/3.0))
-					!write(*,*) 'xyz = ', xyz(j,:)
+!WRITE(*,*) 'r = ', r
+       xyz(j,:) = r(:) * ( V **(1.0/3.0))
+!PRINT*, 'xyz [Ang]= ', xyz(j,:) - (V **(1.0/3.0))
      END DO
    
 END SUBROUTINE do_rand_xyz
@@ -33,18 +32,17 @@ SUBROUTINE do_rand_vel(vel , tmp, np , masses)
      IMPLICIT NONE
      
      REAL(dp)  :: vel(:,:) &
-	            , r(3), vstd &
-	            , masses(:)&
-	            , tmp
-				
+                , r(3), vstd &
+                , masses(:)&
+                , tmp
+
      INTEGER :: j &
-	          , np
+              , np
      
      DO j = 1 , np       
        r(:) = rand_normal2(3) ! open source from roseta code
        vstd = sqrt( tmp * kb / masses(j) )
-       vel(j,:) = 0 + r(:) * vstd  
-     
+       vel(j,:) = 0 + r(:) * vstd   
      END Do
    
 END SUBROUTINE do_rand_vel
@@ -55,22 +53,21 @@ SUBROUTINE do_fix_centerOfMass(vel, np, masses)
      IMPLICIT NONE
 
      INTEGER :: j  &
-	          , np
-			  
+              , np
+  
      REAL(dp) :: vel(:,:)                           &
-	           , vcm_tmp(SIZE(vel,1), SIZE(vel,2))  &
-			   , vcm = 0                            &
-			   , masses(:) !&, veltmp(SIZE(vel,1), SIZE(vel,2))
-			
-	 vcm_tmp(:,:)=0		   
+               , vcm_tmp(SIZE(vel,1), SIZE(vel,2))  &
+               , vcm = 0                            &
+               , masses(:) !&, veltmp(SIZE(vel,1), SIZE(vel,2))
+
+     vcm_tmp(:,:)=0
      DO j = 1, 3
        vcm_tmp(:,j) = vel(:,j) * masses(:)
-									!veltmp(:,j) = vel(:,j) 
      END DO
      vcm = SUM(vcm_tmp) / SUM(masses)
-                   				   !print *,vcm								   
-	   vel(:,1:3) = vel(:,1:3) - vcm
-								   !print*, vel-veltmp
+!PRINT*,vcm								   
+     vel(:,1:3) = vel(:,1:3) - vcm
+!PRINT*, vel-veltmp
     
 END SUBROUTINE do_fix_centerOfMass
    
@@ -80,69 +77,84 @@ SUBROUTINE do_scale_vel(vel, T, np, masses )
      IMPLICIT NONE
      
      INTEGER :: k  &
-	          , j  &
-			  , np
-			  
+              , j  &
+              , np
+  
      REAL(dp) :: vel(:,:)   &
-	           , T          &
-			   , Tscale     &
-			   , velscale   &
-			   , Ttemp      &
-			   , masses(:)  !	&, veltemp(SIZE(vel,1), SIZE(vel,2))
+               , T          &
+               , Tscale     &
+               , velscale   &
+               , Ttemp      &
+               , masses(:)  !	&, veltemp(SIZE(vel,1), SIZE(vel,2))
      
-								!veltemp(:,1:3) = vel(:,1:3)
-	   k = 1 
-       CALL do_calcT(Ttemp, vel, np , masses)	   
-								!print*, Ttemp
+!veltemp(:,1:3) = vel(:,1:3)
+       k = 1 
+       CALL do_calcT(Ttemp, vel, np , masses)
+!PRINT*, Ttemp
        Tscale = ( (T - Ttemp) / T )  * 100
-								!PRINT *, 'Ttemp start at itteration (k) = ',k ,'is', Ttemp, 'T = ', T, 'Tscale= ', Tscale
+!PRINT *, 'Ttemp start at itteration (k) = ',k ,'is', Ttemp, 'T = ', T, 'Tscale= ', Tscale
        DO WHILE ( (ABS(Tscale)>0.001) .and. (k<1000) )
           velscale = sqrt( T / Ttemp)
-								!Print *, 'velscale at itteration (k) = ', k, 'is ', velscale
+!Print *, 'velscale at itteration (k) = ', k, 'is ', velscale
           DO j = 1 , 3
             vel(:,j) = vel(:,j) * velscale
           END DO 
           CALL do_calcT(Ttemp, vel, np , masses)
           Tscale = ( (T - Ttemp) / T )  * 100
-								!PRINT *, 'Ttemp end at itteration (k) = ',k ,'is', Ttemp, 'T = ', T, 'Tscale= ', Tscale
+!PRINT *, 'Ttemp end at itteration (k) = ',k ,'is', Ttemp, 'T = ', T, 'Tscale= ', Tscale
           k= k + 1  
        end DO
-								!CALL do_calcT(Ttemp, vel, np , masses)
-								!PRINT*, Ttemp
-								!veltemp = veltemp - vel
-								!PRINT *, veltemp (:,1)
-								!PRINT *, veltemp (:,2)
-								!PRINT *, veltemp (:,3)
+!CALL do_calcT(Ttemp, vel, np , masses)
+!PRINT*, Ttemp
+!veltemp = veltemp - vel
+!PRINT *, veltemp (:,1)
+!PRINT *, veltemp (:,2)
+!PRINT *, veltemp (:,3)
 END SUBROUTINE do_scale_vel                   
 
 !##########################################################
-SUBROUTINE do_velVerlet(np, xyz, vel, acc, frc, masses, dt);
+SUBROUTINE do_velVerlet(np, r, v, a, f, U, m, dt);
 !##########################################################
      
      IMPLICIT NONE              
      
      INTEGER :: i  &
-	          , np
-			  
-     REAL(dp) :: xyz(:,:)  &
-	           , vel(:,:)  &
-	           , acc(:,:)  &
-	           , frc(:,:)  &
-	           , masses(:) &
-	           , dt 	 
-	 
-	 
-	 DO i=1 , 3 
-       xyz(:,i) = xyz(:,i) + vel(:,i) * dt + 0.5 * acc(:,i) * dt * dt;
-     END DO   
-   
+                , np
+  
+     REAL(dp) :: r(:,:)  &
+               , v(:,:)  &
+               , a(:,:)  &
+               , f(:,:)  &
+               , m(:)    &
+               , U(:)    &
+               , dt      
+
+     REAL(dp), ALLOCATABLE :: dUdr(:,:)
+    
+      
+ 
+     ALLOCATE(dUdr(SIZE(r,1), 3))
+     
      DO i = 1 , 3
-        vel(:,i) = vel(:,i) + 0.5 * ( frc(:,i) / masses(:) + acc(:,i)) * dt;
+        v(:,i) = v(:,i) + 0.5 * ( f(:,i) / m(:) + a(:,i)) * dt;
      END DO
-   
-     DO i = 1 , 3 
-        acc(:,i) =  frc(:,i) / masses(:);
-     END DO
+     
+     DO i=1 , 3 
+       r(:,i) = r(:,i) + v(:,i) * dt + 0.5 * a(:,i) * dt * dt;
+     END DO   
+     
+     dudr(:,:) = 0
+!PRINT*, 'size(U)',size(U,1)
+     !DO i= 1, 3
+     !  dUdr(:,1) =  U(:, 1) - U(:,1)  !/ &
+!             ( r(1:(SIZE(r,1)-1),i) - r(2:(SIZE(r,1)),i) )   
+     !END DO
+  
+!PRINT*, U(:)
+
+!     DO i = 1 , 3 
+!        a(:,i) =  frc(:,i) / m(:);
+!     END DO
    
 END SUBROUTINE do_velVerlet 
   
@@ -152,13 +164,13 @@ SUBROUTINE do_genRand(r,m,j)
     IMPLICIT NONE
     
     INTEGER :: i     &
-	         , j     &
-			 , m     &
-			 , n     &
-			 , clock
-			 
+             , j     &
+             , m     &
+             , n     &
+             , clock
+ 
     INTEGER, ALLOCATABLE :: seed(:)
-	
+
     REAL(dp) :: r(m)
     
     CALL RANDOM_SEED(SIZE=n)
@@ -195,8 +207,6 @@ FUNCTION rand_normal2(n)
               , sd = 1.0          ! from http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html //equlized with randn function in matlab 
      
     pi = 4.0*ATAN(1.0)
-    
-  ! CALL RANDOM_NUMBER(array) ! Uniform distribution
     CALL do_genRand(array,n,1)
      
   ! Now convert to normal distribution
@@ -205,14 +215,12 @@ FUNCTION rand_normal2(n)
       array(i+1) = sd * SQRT(-2.0*LOG(array(i))) * SIN(2*pi*array(i+1)) + mean
       array(i) = temp
     END DO
-     
+
   ! Check mean and standard deviation
     mean = SUM(array)/n
-    sd = SQRT(SUM((array - mean)**2)/n)
-     
-					!WRITE(*, "(A,F8.6)") "Mean = ", mean
-					!WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd
-      
+    sd = SQRT(SUM((array - mean)**2)/n)     
+!WRITE(*, "(A,F8.6)") "Mean = ", mean
+!WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd      
     rand_normal2(:) = array(:)
 END FUNCTION rand_normal2
   
@@ -221,243 +229,232 @@ SUBROUTINE do_calcT(temp, vel, np, masses)
 !##########################################################    
     IMPLICIT NONE
     
-    REAL(dp)::  vel(:,:), vel_sqr(np), temp, masses(:)
-    INTEGER :: dof , i, np
+    REAL(dp):: vel(:,:)    &
+             , vel_sqr(np) &
+             , temp        &
+             , masses(:)
+
+    INTEGER :: dof &
+             , np  ! & , i
    
     vel_sqr(:) = vel(:,1)**2 + vel(:,2)**2 + vel(:,3)**2 
-							!do i = 1, size(vel_sqr)
-							!	print *, vel(i,:)
-							!	print *, vel_sqr(i)      
-						    !end do
-	dof = 3 * np - 3
-	temp = sum(masses(:) * vel_sqr(:))
+!do i = 1, size(vel_sqr)
+!  print *, vel(i,:)
+!  print *, vel_sqr(i)      
+!end do
+    dof = 3 * np - 3
+    temp = sum(masses(:) * vel_sqr(:))
     temp = temp / (kb * dof) 
-							!write(*,*) temp   
+!write(*,*) temp   
 END SUBROUTINE do_calcT
 !########################################################## 
-SUBROUTINE do_get_EAMPotData(F_rho_1, rho_r_1, F_rho_2, rho_r_2, phi_r11, phi_r21, phi_r22)
+SUBROUTINE do_get_EAMPotData(nrho, drho, nr, dr, cutoff, F_rho_1, rho_r_1, F_rho_2, rho_r_2, phi_r11, phi_r21, phi_r22)
 !##########################################################    
     IMPLICIT NONE
-	
-	INTEGER :: nrho       &
-	         , nr         &
-			 , ix, jx, kx
-	REAL(dp), ALLOCATABLE :: allData(:,:)	&
-	                       , allData_line(:) &
-	                       , F_rho_1(:)&
-	                       , rho_r_1(:)&
-	                       , F_rho_2(:)&
-	                       , rho_r_2(:)&
-	                       , phi_r11(:)&
-	                       , phi_r21(:)&
-	                       , phi_r22(:)
-	REAL(dp) :: drho, dr, cutoff 
+    
+    INTEGER :: nrho       &
+             , nr         &
+             , ix, jx, kx
+    REAL(dp), ALLOCATABLE :: allData(:,:)    &
+                           , allData_line(:) &
+                           , F_rho_1(:)&
+                           , rho_r_1(:)&
+                           , F_rho_2(:)&
+                           , rho_r_2(:)&
+                           , phi_r11(:)&
+                           , phi_r21(:)&
+                           , phi_r22(:)
 
-	nrho = 5000 
-	drho = 1.299907800000000e-03 
-	nr = 5000 
-	dr = 1.299907800000000e-03 
-	cutoff = 6.499539000000000e+00
+    REAL(dp) :: drho  &
+              , dr    & 
+              , cutoff 
+    
+    nrho = 5000 
+    drho = 1.2999078e-03 
+    nr = 5000 
+    dr = 1.2999078e-03 
+    cutoff = 6.499539
+    
+    ALLOCATE(allData(1:7000, 1:5))
+    ALLOCATE(allData_line(1: SIZE(allDATA,1)* SIZE(allDATA,2)))
+    ALLOCATE(F_rho_1(nrho))
+    ALLOCATE(rho_r_1(nr))
+    ALLOCATE(F_rho_2(nrho))
+    ALLOCATE(rho_r_2(nr))
+    ALLOCATE(phi_r11(nr))
+    ALLOCATE(phi_r21(nr))
+    ALLOCATE(phi_r22(nr))
+    
+    OPEN(UNIT=22,FILE="pot-Ni-Co-old.dat",FORM="FORMATTED",STATUS="OLD",ACTION="READ")
+      DO ix = 1 , 7000
+        READ(22,*) allData(ix,:)
+      END DO
+!write(*,*) allData(1,:)
+!write(*,*) allData(7000,:)
+    CLOSE(UNIT=22)
 
-	ALLOCATE(allData(1:7000, 1:5))
-	ALLOCATE(allData_line(1: SIZE(allDATA,1)* SIZE(allDATA,2)))
-	ALLOCATE(F_rho_1(nrho))
-	ALLOCATE(rho_r_1(nr))
-	ALLOCATE(F_rho_2(nrho))
-	ALLOCATE(rho_r_2(nr))
-	ALLOCATE(phi_r11(nr))
-	ALLOCATE(phi_r21(nr))
-	ALLOCATE(phi_r22(nr))
-	
-	OPEN(UNIT=22,FILE="pot-Ni-Co-old.dat",FORM="FORMATTED",STATUS="OLD",ACTION="READ")
-	  DO ix = 1 , 7000
-	    READ(22,*) allData(ix,:)
-	  END DO
-	  				!write(*,*) allData(1,:)
-	  				!write(*,*) allData(7000,:)
-	CLOSE(UNIT=22)
-		
-	kx=1
-	do ix = 1 , 7000
-	  do jx = 1 , 5
-		allData_line(kx) = allData(ix,jx)
-		kx=kx+1
-	  end do
-	end do
-					!print*,  allData_line , size(allData_line)
-	F_rho_1 = allData_line(1:5000)
-	rho_r_1 = allData_line(5001:10000)
-	F_rho_2 = allData_line(10001:15000)
-	rho_r_2 = allData_line(15001:20000)
-	phi_r11 = allData_line(20001:25000)
-	phi_r21 = allData_line(25001:30000)
-	phi_r22 = allData_line(30001:35000)
-	
+    kx=1
+    do ix = 1 , 7000
+      do jx = 1 , 5
+        allData_line(kx) = allData(ix,jx)
+        kx=kx+1
+      end do
+    end do
+!print*,  allData_line , size(allData_line)
+    F_rho_1 = allData_line(1:5000)
+    rho_r_1 = allData_line(5001:10000)
+    F_rho_2 = allData_line(10001:15000)
+    rho_r_2 = allData_line(15001:20000)
+    phi_r11 = allData_line(20001:25000)
+    phi_r21 = allData_line(25001:30000)
+    phi_r22 = allData_line(30001:35000)
+
 END SUBROUTINE do_get_EAMPotData
 !########################################################## 
-!!!SUBROUTINE do_calcEAM(EAM, xyz, masses)
-!!!!##########################################################    
-!!!  IMPLICIT NONE
-!!!  
-!!!  REAL(dp), ALLOCATABLE :: EAM(:)    &
-!!!                         , xyz(:,:)  &
-!!!						 , masses(:) &
-!!!						 , r(:,:)
-!!!  
-!!!  INTEGER :: ix,jx
-!!!  
-!!!  ALLOCATE(EAM(SIZE(masses)))
-!!!  ALLOCATE(r(SIZE(masses),(SIZE(masses)-1 )))
-!!!  DO ix = 1 , SIZE(xyz,1)
-!!!    DO jx = 1 , SIZE(xyz,1)
-!!!	  !IF (ix/=jx) THEN
-!!!		r(ix, jx) = sqrt( sum( (xyz(ix,:) - xyz(jx,:))**2))
-!!!											print*, ix , jx
-!!!											print*, r(ix, jx)
-!!!											!print*,xyz(ix,:)
-!!!											!print*,xyz(jx,:)
-!!!											!print*,r(ix, jx)
-!!!											!print*, '----'
-!!!	  !END IF
-!!!    END DO
-!!!  END DO
-!!!write(*,*) 'I am  here  1'
-!!!EAM(:)=0
-!!!print*, EAM  
-!!!  
-!!!  
-!!!END SUBROUTINE do_calcEAM
-!!!!##########################################################    
+SUBROUTINE do_calcEAM(EAM, xyz, masses,nAt,       &
+                   nrho, drho, nr, dr, cutoff,    &
+                   F1, rho1, F2, rho2, phi11, phi21, phi22)
+!##########################################################    
+  IMPLICIT NONE
+  
+  REAL(dp), ALLOCATABLE :: EAM(:)    &
+                         , xyz(:,:)  &
+                         , masses(:) &
+                         , r2d(:,:)  &
+                         , r1d(:)    &
+                         , F1(:)     &
+                         , rho1 (:)  &
+                         , F2(:)     &
+                         , rho2 (:)  &
+                         , phi11(:)  &
+                         , phi21(:)  &
+                         , phi22(:)  &
+                         , rho_sum(:)&
+                         , f_rho(:)  &
+                         , phi_sum(:)
 
+  REAL(dp) :: drho   &
+            , dr     &
+            , cutoff &
+            , r
+                             
+  INTEGER :: ix,jx, k &
+           , nrho, nr &
+           , ridx, rhoidx     
+  
+  INTEGER, ALLOCATABLE :: nAt(:) !number of atoms of each epecies
+  
+  ALLOCATE(EAM(SIZE(xyz,1)))
+  ALLOCATE(rho_sum( SIZE(xyz,1)))
+  ALLOCATE(f_rho(SIZE(xyz,1)))
+  ALLOCATE(phi_sum(SIZE(xyz,1)))
 
+  DO ix = 1 , SIZE(xyz,1)
+    rho_sum(ix) = 0.0
+    phi_sum(ix) = 0.0
+    DO jx = 1 , SIZE(xyz,1)
+      IF (ix/=jx) THEN
+        r = sqrt( sum( (xyz(ix,:) - xyz(jx,:) ) ** 2 ) )
+        ridx = floor(r / (dr))
+!PRINT*, 'ridx ix jx =(',ix,',', jx ,') =',  ridx
+        IF (ridx<=floor(cutoff/dr) .AND. ridx>0) THEN
+           IF (ix>nAt(1)) THEN ! 28 ! note: Rho1 -- correlated with F2
+             rho_sum(ix)= rho_sum(ix) + rho1(ridx) 
+             IF (jx>nAt(1)) THEN !28-28 ! note: first 5000==28-28== phi1
+               phi_sum(ix) = phi_sum(ix) + phi11(ridx)
+             ELSE  !28-27 ! note 2nd 5000 phi2
+               phi_sum(ix) = phi_sum(ix) + phi21(ridx)
+             ENDIF 
+           ELSE !27 ! note: rho2 -- correlated with F1
+             rho_sum(ix)= rho_sum(ix) + rho2(ridx) 
+             IF (jx>nAt(1)) THEN !27-28 ! note: 2rd 5000 phi2
+               phi_sum(ix) = phi_sum(ix) + phi21(ridx)
+             ELSE !27-27 ! note: 3rd 5000 phi 3
+               phi_sum(ix) = phi_sum(ix) + phi22(ridx)
+             END IF
+           END IF
+        END IF
+      END IF
+    END DO
+!PRINT*, 'rho_sum ix [ev]= ',ix , 'is', rho_sum(ix)
+    rhoidx = floor(rho_sum(ix)/(drho)) 
+!PRINT*, 'rhoidx ix = ',ix ,'=',  rhoidx
+    IF (ix>nAT(1)) THEN ! 28 -- rho1
+      F_rho(ix) = rho_sum(ix) * F2(rhoidx)  ! F27 -- F2
+    ELSE ! 27 -- rho2
+      F_rho(ix) = rho_sum(ix) * F1(rhoidx)  ! F28 -- F1
+    END IF
+    EAM(ix) = (f_rho(ix) + 0.5 * phi_sum(ix) ) 
+!PRINT*, 'EAM [ev] = ', EAM(ix)
+  END DO 
+  
+END SUBROUTINE do_calcEAM
+!##########################################################   
+SUBROUTINE do_fdmDiff(dfx, f, dx)
+!##########################################################    
+  IMPLICIT NONE
+  
+  REAL(dp) :: f(:) &
+            , dx
+  
+  REAL(dp), ALLOCATABLE :: dfx(:)
+  INTEGER :: L 
+  
+  L = SIZE(f,1)
 
+  ALLOCATE(dfx(1:L))
+  
+  dfx(:) = 0.0
+  dfx(1:L-1) = (f(1:L-1) - f(2:L) ) / dx 
+  dfx(L)=dfx(L-1)
+!write(*,*), dfx(:)
+END SUBROUTINE do_fdmDiff
+!##########################################################
+SUBROUTINE do_calc_drEAMParam(dr, drho, F1, rho1, F2, rho2,   & 
+                              phi11, phi21, phi22,            & 
+                              dFdr1, drhodr1, dFdr2, drhodr2, &
+                              dphidr11, dphidr21, dphidr22)
 
+  REAL(dp), ALLOCATABLE :: F1   (:)          & 
+                         , rho1 (:)          &
+                         , F2   (:)          &
+                         , rho2 (:)          &
+                         , phi11(:)          &
+                         , phi21(:)          &
+                         , phi22(:)          &
+                         , dFdr1(:)          &
+                         , drhodr1(:)        &
+                         , dFdr2(:)          &
+                         , drhodr2(:)        &
+                         , dphidr11(:)       &
+                         , dphidr21(:)       &
+                         , dphidr22(:)       
+                         
+  REAL(dp) :: dr, drho
+  
+  CALL do_fdmDiff(dFdr1    ,F1   , drho)  
+  CALL do_fdmDiff(drhodr1  ,rho1 , dr  ) 
+  CALL do_fdmDiff(dFdr2    ,F2   , drho)     
+  CALL do_fdmDiff(drhodr2  ,rho2 , dr  ) 
+  CALL do_fdmDiff(dphidr11 ,phi11, dr  ) 
+  CALL do_fdmDiff(dphidr21 ,phi21, dr  ) 
+  CALL do_fdmDiff(dphidr22 ,phi22, dr  ) 
+!write(*,*), dfdr1(:) 
+!write(*,*), '*****' 
+!write(*,*), drhodr1(:) 
+!write(*,*), '*****' 
+!write(*,*), dfdr2(:) 
+!write(*,*), '*****' 
+!write(*,*), drhodr2(:) 
+!write(*,*), '*****' 
+!write(*,*), dphidr11(:)
+!write(*,*), '*****' 
+!write(*,*), dphidr21(:)
+!write(*,*), '*****' 
+!write(*,*), dphidr22(:)
+
+END SUBROUTINE do_calc_drEAMParam
+!##########################################################
+
+ 
 END MODULE utilities
-
- 
- 
-!  FUNCTION random_normal(n)
-!  
-!  ! Adapted from the following Fortran 77 code
-!  !      ALGORITHM 712, COLLECTED ALGORITHMS FROM ACM.
-!  !      THIS WORK PUBLISHED IN TRANSACTIONS ON MATHEMATICAL SOFTWARE,
-!  !      VOL. 18, NO. 4, DECEMBER, 1992, PP. 434-435.
-!  
-!  !  The function random_normal() returns a normally distributed pseudo-random
-!  !  number with zero mean and unit variance.
-!  
-!  !  The algorithm uses the ratio of uniforms method of A.J. Kinderman
-!  !  and J.F. Monahan augmented with quadratic bounding curves.
-!  
-!    IMPLICIT NONE
-!  
-!  ! local variables
-!    INTEGER  :: n , i
-!    REAL(dp) :: random_normal(n)
-!    REAL(dp)     :: s = 0.449871, t = -0.386595, a = 0.19600, b = 0.25472,           &
-!                r1 = 0.27597, r2 = 0.27846, u, v, x, y, q , mean , sd
-!  
-!  !     Generate P = (u,v) uniform in rectangle enclosing acceptance region
-!  
-!    DO i =  1 , n
-!      DO
-!        CALL RANDOM_NUMBER(u)
-!        CALL RANDOM_NUMBER(v)
-!        v = 1.7156 * (v - half)
-!    
-!    !     Evaluate the quadratic form
-!        x = u - s
-!        y = ABS(v) - t
-!        q = x**2 + y*(a*y - b*x)
-!    
-!    !     Accept P if inside inner ellipse
-!        IF (q < r1) EXIT
-!    !     Reject P if outside outer ellipse
-!        IF (q > r2) CYCLE
-!    !     Reject P if outside acceptance region
-!        IF (v**2 < -4.0*LOG(u)*u**2) EXIT
-!    
-!      END DO
-!
-!      random_normal(i) = v/u
-!
-!    END DO
-!  
-!  
-!  
-!  ! Check mean and standard deviation                 
-!    mean = SUM(random_normal)/n              
-!    sd = SQRT(SUM((random_normal - mean)**2)/n)
-!  
-!    WRITE(*, "(A,F8.6)") "Mean = ", mean            
-!    WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd
-!    
-!    
-!  !     Return ratio of P's coordinates as the normal deviate
-!  
-!    RETURN
-!  
-!  END FUNCTION random_normal
-!
-!  !##########################################################
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
