@@ -35,66 +35,69 @@ PROGRAM molecular_dynamics
                          , frc(:,:)          &! forces
 , EAM(:)         
 
-  INTEGER :: n_particles     &! total number of atoms in the system
-           , n_timesteps     &! number of timesteps
-           , n_species       &! number of species in the system
-           , n_samples       &! number of samples
-           , samp_offset     &! number of timesteps between two samples except for the last one
-           , sampleStep      &! tstp of sampling
-           , i ,j , k         ! counters
+  INTEGER :: nPart     &! total number of atoms in the system
+           , nTstps     &! number of timesteps
+           , nSpcis       &! number of species in the system
+           , nSamps       &! number of samples
+           , sampOffset     &! number of timesteps between two samples except for the last one
+           , sampStp      &! tstp of sampling
+           , sampK		 &! sample counter  
+           , tstp ,ix, j         ! counters
   INTEGER, ALLOCATABLE :: atomic_numbers(:)  &! atomic numbers of each species A1, A2, ... 
                         , n_atoms(:)         ! numbers of atoms of each species n1, n2 ,..
   TYPE(timestep_saver), DIMENSION(:), ALLOCATABLE :: timestep_samples
   TYPE(EAM_data) :: EAMdata, EAMdiff         
 
+!REAL(dp) :: A(4,3)  
+  
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ! MAIN
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   WRITE(*,*) 'This is my simple MD code, implemneted with fortran 90'
   ! Read from input: all vectores atomic number ordered, ascending   
   ! Lenght unit: angestrom
-  CALL get_input(t, dt, temperature, volume, n_timesteps, samp_interval, &
-                 n_particles, n_species, n_atoms, atomic_numbers, atomic_masses)
+  CALL get_input(t, dt, temperature, volume, nTstps, samp_interval, &
+                 nPart, nSpcis, n_atoms, atomic_numbers, atomic_masses)
 !write(*,*) 'number of atoms: ', n_atoms(:)
 !write(*,*) 'atomic numbers: ', atomic_numbers(:)
 !write(*,*) 'atomic_masses: ',atomic_masses(1:size(atomic_masses))
 !write(*,*) 't: ', t, 'dt: ', dt, 'T: ', temperature, 'V:', volume, &
-!           'sampling offset: ', samp_offset,  'number of timesteps: ', n_timestps
-!write(*,*) 'number of particles: ', n_particles, 'number of species:', n_species           
+!           'sampling offset: ', sampOffset,  'number of timesteps: ', n_timestps
+!write(*,*) 'number of particles: ', nPart, 'number of species:', nSpcis           
 
   ! allocate and initialize saver
-  samp_offset = Floor(samp_interval / dt * 1.0)
-!  samp_offset = FLOOR(samp_offset)  
-  n_samples = 1 + FLOOR(n_timesteps / samp_offset * 1.0)
-  ALLOCATE(timestep_samples(0:n_samples))                           
-  DO i = 0, n_samples
-    ALLOCATE(timestep_samples(i)%xyz_save(n_particles,3)) ! N*3 matrix
-    ALLOCATE(timestep_samples(i)%vel_save(n_particles,3)) ! N*3 matrix
-    ALLOCATE(timestep_samples(i)%acc_save(n_particles,3)) ! N*3 matrix
-    ALLOCATE(timestep_samples(i)%frc_save(n_particles,3)) ! N*3 matrix
-    ALLOCATE(timestep_samples(i)%EAM_save(n_particles))   ! N*1 matrix
-    timestep_samples(i)%xyz_save(:,:) = 0 
-    timestep_samples(i)%vel_save(:,:) = 0       
-    timestep_samples(i)%acc_save(:,:) = 0
-    timestep_samples(i)%frc_save(:,:) = 0
-    timestep_samples(i)%EAM_save(:)   = 0
-    timestep_samples(i)%kin_save      = 0
-    timestep_samples(i)%E_save        = 0
-    timestep_samples(i)%err_save      = 0
+  sampOffset = Floor(samp_interval / dt * 1.0)
+!  sampOffset = FLOOR(sampOffset)  
+  nSamps = 1 + FLOOR(nTstps / sampOffset * 1.0)
+  ALLOCATE(timestep_samples(0:nSamps))                           
+  DO ix = 0, nSamps
+    ALLOCATE(timestep_samples(ix)%xyz_save(nPart,3)) ! N*3 matrix
+    ALLOCATE(timestep_samples(ix)%vel_save(nPart,3)) ! N*3 matrix
+    ALLOCATE(timestep_samples(ix)%acc_save(nPart,3)) ! N*3 matrix
+    ALLOCATE(timestep_samples(ix)%frc_save(nPart,3)) ! N*3 matrix
+    ALLOCATE(timestep_samples(ix)%EAM_save(nPart))   ! N*1 matrix
+    timestep_samples(ix)%xyz_save(:,:) = 0 
+    timestep_samples(ix)%vel_save(:,:) = 0       
+    timestep_samples(ix)%acc_save(:,:) = 0
+    timestep_samples(ix)%frc_save(:,:) = 0
+    timestep_samples(ix)%EAM_save(:)   = 0
+    timestep_samples(ix)%kin_save      = 0
+    timestep_samples(ix)%E_save        = 0
+    timestep_samples(ix)%err_save      = 0
   END DO
     
   !allocate and initialize timestep variables
-  ALLOCATE(xyz(n_particles,3)) ! N*3 matrix
-  ALLOCATE(vel(n_particles,3)) ! N*3 matrix
-  ALLOCATE(acc(n_particles,3)) ! N*3 matrix
-  ALLOCATE(frc(n_particles,3)) ! N*3 matrix
-  ALLOCATE(EAM(n_particles))   ! N*1 matrix
+  ALLOCATE(xyz(nPart,3)) ! N*3 matrix
+  ALLOCATE(vel(nPart,3)) ! N*3 matrix
+  ALLOCATE(acc(nPart,3)) ! N*3 matrix
+  ALLOCATE(frc(nPart,3)) ! N*3 matrix
+  ALLOCATE(EAM(nPart))   ! N*1 matrix
   xyz(:,:) = 0 
   vel(:,:) = 0       
   acc(:,:) = 0
   frc(:,:) = 0
-  
-!ALLOCATE(dotEAM(n_particles))
+
+!ALLOCATE(dotEAM(nPart))
 !********************************************************************************
   ! read EAM potential data from Ni-Co eam.alloy file
   ! unites: Angestrom, ev
@@ -105,60 +108,67 @@ PROGRAM molecular_dynamics
 !********************************************************************************
 !time step loop
 !********************************************************************************
-  sampleStep = 0
-  DO i= 0, n_timesteps
-Print*, i
-    IF (i==0) THEN
+  sampStp = 0
+  sampK = 0
+  DO tstp= 0, nTstps
+    IF (tstp==0) THEN
       CALL do_rand_xyz(xyz, volume)
       CALL do_rand_vel(vel, temperature, atomic_masses)          
-      CALL do_fix_centerOfmass(vel, atomic_masses)
+      CALL do_fix_centerOfmass(vel, atomic_masses)	   
     ELSE
       CALL do_velverlet(xyz, vel, acc, frc, atomic_masses, dt)
     END IF
     ! Thermostat - Scale velocity with designated T
     CALL do_scale_vel(vel, temperature, atomic_masses)
+    ! Perodic boundary - Recursive
 !A(1,:)=(/1.2,-2.3,4.2/)
 !A(2,:)=(/2.2,1.2,-4.3/)
 !A(3,:)=(/1.2,1.2,10.0/)
 !A(4,:)=(/-1.5,-1.8,-4.1/)
-    ! Perodic boundary - Recursive
-    DO j = 1 , n_particles
-      CALL do_FixXYZ(xyz(j,:), volume)
-    END DO
+	CALL do_FixXYZ(xyz(1:nPart,1:3), volume)
+!PRINT*, '*******************original', tstp
 !PRINT*, A(1,:)
 !PRINT*, A(2,:)
 !PRINT*, A(3,:)
 !PRINT*, A(4,:)
+
     ! Calculate force
     CALL do_calcEAMfrc(frc, EAM, xyz, atomic_masses, n_atoms, EAMdata, EAMdiff)
     ! Calculate total kinetic energy
-    Kin = 0
-    DO j= 1, n_particles
-      Kin = 0.5 * atomic_masses(j) * sum(vel(j,:)**2)
-    END DO   
+
+    kin = 0 
+    DO j= 1, 3
+      Kin = kin + 0.5 * sum(atomic_masses(:) * vel(:,j)**2)	  
+    END DO  
+!Print*, '(2)', kin		
+
+!    kin =0
+!    Kin =  sum(0.5 * atomic_masses(1:nPart) * sum(vel(1:nPart,1:3)**2)	  	) / npart
+!Print*, '(3)', kin	
+
     ! sample initial values
     E = sum(EAM(:)) + Kin
-    IF (i==0) THEN
+    IF (tstp==0) THEN
       E0 = E0
     END IF
     
-    IF ( i==sampleStep ) THEN
-      timestep_samples(i)%xyz_save(:,:) = xyz(:,:)    
-      timestep_samples(i)%vel_save(:,:) = vel(:,:)
-      timestep_samples(i)%acc_save(:,:) = acc(:,:)
-      timestep_samples(i)%frc_save(:,:) = frc(:,:)
-      timestep_samples(i)%EAM_save(:) = EAM(:)
-      timestep_samples(i)%kin_save = kin
-      timestep_samples(i)%E_save = E
-      timestep_samples(i)%err_save = (E-E0)/E0
-      IF (sampleStep+samp_offset <= n_timesteps) THEN
-        sampleStep = sampleStep + samp_offset  
+    IF ( tstp==sampStp ) THEN
+	  timestep_samples(sampK)%xyz_save(:,:) = xyz(:,:)    
+      timestep_samples(sampK)%vel_save(:,:) = vel(:,:)
+      timestep_samples(sampK)%acc_save(:,:) = acc(:,:)
+      timestep_samples(sampK)%frc_save(:,:) = frc(:,:)
+      timestep_samples(sampK)%EAM_save(:) = EAM(:)
+      timestep_samples(sampK)%kin_save = kin
+      timestep_samples(sampK)%E_save = E
+      timestep_samples(sampK)%err_save = (E-E0)/E0
+      IF (sampStp+sampOffset <= nTstps) THEN
+        sampStp = sampStp + sampOffset  
       ELSE
-        sampleStep = n_timesteps  
+        sampStp = nTstps  
       END IF    
+	  sampK = sampK + 1
     END IF
-Print*, i
-
+Print*, tstp
   END DO
   !ToDo  : print to file
   
