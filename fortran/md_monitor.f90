@@ -4,7 +4,7 @@ USE global
 !###############################################################################################
   contains
 !###############################################################################################
-    subroutine get_input(t, dt, temp, V, nTstps, sampOff, sampInt, nSamps, nP, nSp, nAt, atNums, atMas)
+    subroutine get_input(t, dt, temp, V, nTstps, sampInt, nP, nSp, nAt, atNums, atMas)
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ! Declerations
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -19,10 +19,8 @@ USE global
       REAL(dp), ALLOCATABLE, INTENT(OUT) :: atmas(:)  ! atomic mass of species 
        
       INTEGER, INTENT(OUT) :: nP        &! total number of atoms in the system
-                            , nSp        &! number of species in the system
-                            , sampOff   &! timestep offset between saving data 
-                            , nTstps    &! total number of timesteps
-                            , nSamps     ! number of samples
+                            , nSp       &! number of species in the system
+                            , nTstps     ! total number of timesteps
          
       INTEGER, ALLOCATABLE, INTENT(OUT) :: atNums(:)  &! contains atomic numbers of species A1, A2, ... 
                                          , nAt(:)      ! contains numbers of atoms of each species n1, n2 ,..
@@ -38,8 +36,6 @@ USE global
 !PRINT*, 'volume of 10 atoms[Ang^3] = ', V, 'parameter[Ang] = ', V**(1.0/3.0)
       nTstps = floor(t/dt)
       sampInt = 1e-14 
-      sampOff = floor(sampInt/dt)
-      nSamps = floor(sampInt/(dt * sampOff)) ! +2 for first and last timestep??
   
       nSp = 2 
       allocate(nAt(nSp))

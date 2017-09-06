@@ -20,7 +20,7 @@ MODULE global
                            , rho2 (:)     &
                            , phi11(:)     &
                            , phi21(:)     &
-                           , phi22(:)     & 
+                           , phi22(:)     
 
     REAL(dp) :: drho, dr, cutoff       
     
@@ -31,11 +31,15 @@ MODULE global
   ! to save data of one timestep -- intent :sampling
   TYPE timestep_saver
 
-    REAL(dp), ALLOCATABLE :: pos_save(:,:) &! coordinate 
+    REAL(dp), ALLOCATABLE :: xyz_save(:,:) &! coordinate 
                            , vel_save(:,:) &! velocitie
                            , acc_save(:,:) &! acceleration
-                           , frc_save(:,:)  ! forces
-
+                           , frc_save(:,:) &! forces
+                           , EAM_save(:)    ! EAM potential energy
+    REAL(dp) :: Kin_save &! Kinetic energy
+              , E_save   &! Total Energy 
+              , err_save  ! relative error
+  
   END TYPE timestep_saver
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 END MODULE global
