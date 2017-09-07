@@ -122,8 +122,75 @@ END SUBROUTINE do_velVerlet
   
 !########################################################## 
 !########################################################## 
-SUBROUTINE do_calcEAMfrc(frc, U,  xyz, m, nAt, EAMdata, EAMDiff)
+SUBROUTINE do_calcFrc(frc, U, xyz, m, AtN, atNVec, nAt, EAMdata, EAMDiff)
 !##########################################################    
+  IMPLICIT NONE
+  REAL(dp), ALLOCATABLE :: Frc(:,:)  &
+            , xyz(:,:)     &
+            , m(:)         &
+            , U(:), U_d(:) &
+            , xyz_d(:,:)
+  TYPE(EAM_data) :: EAMData &
+                  , EAMDiff
+  INTEGER :: nAt(:)         &!number of atoms of each epecies
+		   , AtN(:)         &!atomic numbers A1,A2
+		   , atNVec(:) , np      ! A1,A1,... A2,A2....
+  
+  np = SIZE(xyz,1)
+  ALLOCATE(U_d(np))
+  ALLOCATE(xyz_d(np,3))
+  
+  Frc(:,:) = 0
+  CALL do_calcEAMPot( U, xyz, m, AtN, atNVec, nAt, EAMdata, EAMDiff)
+  xyz_d(1:np,1:3) = xyz(1:np,1:3) + 10000000*EAMdata%dr
+ !Print*, xyz(1,:)
+ !Print*, xyz_d(1,:)
+ !Print*, xyz(:,2)
+ !Print*, xyz(:,3)
+  CALL do_calcEAMPot( U_d, xyz_d, m, AtN, atNVec, nAt, EAMdata, EAMDiff)
+ Print*, U(10)
+ Print*, U_d(10)
+  Frc(:,:) = 0 
+
+  
+!Print*, U
+!Print*, xyz
+!Print*, U_d
+!Print*, xyz_d
+Print*, '*******************************'
+  !DO ix = 1, (np-1)
+  !  Do jx = (ix+1), np 
+  !    dr(:) = xyz(ix,:) - xyz(jx,:)
+  !    ffactor = (U(ix) - U(jx)) / dr(:)    
+  !    frc(ix,:) = frc(ix,:) +  ffactor(:)
+  !    frc(jx,:) = frc(jx,:) +  ffactor(:)
+  !  END DO
+  !END DO
+
+END SUBROUTINE do_calcFrc
+
+!##########################################################
+		    
+!		   IF (ix>nAt(1)) THEN ! 28 ! note: Rho1 -- correlated with F2
+!             rho(ix)= rho(ix) + EAMData%rho1(ridx) 
+!             IF (jx>nAt(1)) THEN !28-28 ! note: first 5000==28-28== phi1
+!               phi(ix) = phi(ix) + EAMData%phi11(ridx)
+!             ELSE  !28-27 ! note 2nd 5000 phi2
+!               phi(ix) = phi(ix) + EAMData%phi21(ridx)
+!             ENDIF 
+!           
+!		   ELSE !27 ! note: rho2 -- correlated with F1
+!             Rho(ix)= Rho(ix) + EAMData%rho2(ridx) 
+!             IF (jx>nAt(1)) THEN !27-28 ! note: 2rd 5000 phi2
+!               phi(ix) = phi(ix) + EAMData%phi21(ridx)
+!             ELSE !27-27 ! note: 3rd 5000 phi 3
+!               phi(ix) = phi(ix) + EAMData%phi22(ridx)
+!             END IF
+!           END IF
+!##########################################################
+!##########################################################
+SUBROUTINE do_calcEAMPot( U, xyz, m, AtN, atNVec, nAt, EAMdata, EAMDiff)
+!##########################################################
   IMPLICIT NONE
   REAL(dp), ALLOCATABLE :: U(:)      &   
                          , Frc(:,:)  &
@@ -141,10 +208,11 @@ SUBROUTINE do_calcEAMfrc(frc, U,  xyz, m, nAt, EAMdata, EAMDiff)
                   
   REAL(dp) :: r ,dr(3), ffactor(3)
   
-  INTEGER :: ix, jx, k, np       &
-           , ridx, rhoidx
-           
-  INTEGER, ALLOCATABLE :: nAt(:) !number of atoms of each epecies
+  INTEGER :: ix, jx, kx, np &
+           , ridx, rhoidx   &    
+           , nAt(:)         &!number of atoms of each epecies
+		   , AtN(:)         &!atomic numbers A1,A2
+		   , atNVec(:)       ! A1,A1,... A2,A2....
 
   np = SIZE(xyz,1)
   ALLOCATE(rho(np))
@@ -168,48 +236,46 @@ SUBROUTINE do_calcEAMfrc(frc, U,  xyz, m, nAt, EAMdata, EAMDiff)
       IF (ix/=jx) THEN
         r = sqrt( sum( (xyz(ix,:) - xyz(jx,:) ) ** 2 ) )
         ridx = floor(r / (EAMData%dr))
-        IF (ridx<=floor(EAMData%cutoff/EAMData%dr) .AND. ridx>0) THEN
-           IF (ix>nAt(1)) THEN ! 28 ! note: Rho1 -- correlated with F2
-             rho(ix)= rho(ix) + EAMData%rho1(ridx) 
-             IF (jx>nAt(1)) THEN !28-28 ! note: first 5000==28-28== phi1
-               phi(ix) = phi(ix) + EAMData%phi11(ridx)
-             ELSE  !28-27 ! note 2nd 5000 phi2
-               phi(ix) = phi(ix) + EAMData%phi21(ridx)
-             ENDIF 
-           ELSE !27 ! note: rho2 -- correlated with F1
-             Rho(ix)= Rho(ix) + EAMData%rho2(ridx) 
-             IF (jx>nAt(1)) THEN !27-28 ! note: 2rd 5000 phi2
-               phi(ix) = phi(ix) + EAMData%phi21(ridx)
-             ELSE !27-27 ! note: 3rd 5000 phi 3
-               phi(ix) = phi(ix) + EAMData%phi22(ridx)
-             END IF
-           END IF
+		
+        IF ( (0 < ridx) .AND. (ridx<=floor(EAMData%cutoff/EAMData%dr)) ) THEN
+		  ! F1, Rho1 :: 28
+          ! F2, Rho2 :: 27
+          ! Phi11 = 28-28
+          ! phi21 = 27-28
+          ! phi22 = 27-27		  
+          IF (atNVec(ix)==atN(1)) THEN                    ! ix = 27
+            rho(ix)= rho(ix) + EAMData%rho1(ridx)          ! rho1 = 28
+			  IF (atNVec(jx)==atN(1)) THEN                    ! jx = 27
+			                                                    ! phi22 = 27-27
+                phi(ix) = phi(ix) + EAMData%phi22(ridx)/ridx/EAMData%dr        
+              ELSE                                            ! jx = 28
+                                                                ! phi21 = 27-28			  
+                phi(ix) = phi(ix) + EAMData%phi21(ridx)/ridx/EAMData%dr        
+              ENDIF 
+		    ELSE                                          ! ix = 28
+              Rho(ix)= Rho(ix) + EAMData%rho2(ridx)         ! rho2 = 27 
+              IF (atNVec(jx)==atN(1)) THEN                    ! jx = 27
+                                                                ! phi21 = 28-27  			  
+                phi(ix) = phi(ix) + EAMData%phi21(ridx)/ridx/EAMData%dr        
+              ELSE                                            ! jx = 28
+			                                                    ! phi11= 28-28  
+                phi(ix) = phi(ix) + EAMData%phi11(ridx)/ridx/EAMData%dr        
+              END IF
+            END IF		
         END IF
       END IF
+	  
     END DO
     rhoidx = floor(rho(ix)/(EAMData%drho)) 
-    IF (ix>nAT(1)) THEN ! 28 -- rho1
-      FxRho(ix) = rho(ix) * EAMData%F2(rhoidx)  ! F27 -- F2
-!      dotFxdotRho(ix) = dotrho(ix) * EAMDiff%F2(rhoidx)  ! F27 -- F2
-    ELSE ! 27 -- rho2
-      FxRho(ix) = Rho(ix) * EAMData%F1(rhoidx)  ! F28 -- F1
-!      dotFxdotRho(ix) = dotRho(ix) * EAMDiff%F1(rhoidx)  ! F28 -- F1
+    IF (atNVec(ix)==atN(1)) THEN                ! 27 
+      FxRho(ix) = rho(ix) * EAMData%F2(rhoidx)    ! F2  
+    ELSE                                        ! 28
+      FxRho(ix) = Rho(ix) * EAMData%F1(rhoidx)    ! F1
     END IF
-    U(ix) =  FxRho(ix) + 0.5 * Phi(ix) 
+    U(ix) =  FxRho(ix) + 0.5 * Phi(ix)
   END DO
-
-  frc(:,:) = 0
-
-  DO ix = 1, (np-1)
-    Do jx = (ix+1), np 
-      dr(:) = xyz(ix,:) - xyz(jx,:)
-      ffactor = (U(ix) - U(jx)) / dr(:)    
-      frc(ix,:) = frc(ix,:) +  ffactor(:)
-      frc(jx,:) = frc(jx,:) +  ffactor(:)
-    END DO
-  END DO
-
-END SUBROUTINE do_calcEAMfrc
+  
+END SUBROUTINE do_calcEAMPot
 
 !##########################################################
 !##########################################################
