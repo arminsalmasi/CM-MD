@@ -1,175 +1,193 @@
 ! Program MD
-! MD is a fortran code for a simple MD simulation.
-! It is possible to use eather Lennard-Jones or &&
-! Embedded Atom Method (EAM) potentials.
-!
-! case study is a monoatomic metal in this case Ti
-! 
-! The code is developed by Armin Salmasi at KTH, Stockholm, Sweden.
-! First code commit (commit#2-2): 2017-07-11
-! 
-! Feel free to use any part of this code.
-
-PROGRAM molecular_dynamics
+! a fortran code for a simple Molocular Dynamics simulation of Ni, Co alloy using
+! EAM potentials from NIST EAM repository: 
+! https://www.ctcms.nist.gov/potentials/Co-Ni.html
+! Potential data is tabulated by Y. Mishin (George Mason Univ.) on 17 Sept. 2013 
+! and was posted on 17 Jan. 2014. This version is compatible with LAMMPS and The reference 
+! information was updated on 26 Aug. 2015 
+! Format: EAM/alloy setfl 
+! https://www.ctcms.nist.gov/potentials/Download/Ni-Al-Co-YM13/Mishin-Ni-Co-2013.eam.alloy
+! ! This code is implemented by Armin Salmasi at KTH, Stockholm,Sweden in 2017
+! ! Feel free to use any part of this code.
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+PROGRAM md
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ! Anounces
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-  USE monitor
-  USE global
-  USE utilities
+  USE io
+  USE glbl
+  USE util
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ! Declerations - main local variables
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   IMPLICIT NONE
-  REAL(dp) :: t, dt, temperature, volume              &! simulation, time timestep, volume
-            , samp_interval         &! time between saving data (purpes = speed up)
-            , temperature_temp      &! 
-            , E0                    &! Total energy initial
-            , Kin                   &! Kinetic energy
-            , E                      ! Total Energy & , A(4,3) &
+  REAL(dp) :: t, dt, Temp, vol &! simulation, time timestep, vol
+            , smpInt           &! time between saving data (purpes = speed up)
+            , E, E0            &! Total energy ::  time dependent , initial
+            , Kin               ! Kinetic energy
 
-  REAL(dp), ALLOCATABLE :: AtMas(:)  &! atomic mass of species 
-                         , xyz(:,:)          &! coordinate 
-                         , vel(:,:)          &! velocitie
-                         , acc(:,:)          &! acceleration
-                         , frc(:,:)          &! forces
-                         , EAM(:)         
+  REAL(dp), ALLOCATABLE :: AtMas(:) &! atomic mass of species 
+                         , xyz(:,:) &! coordinate 
+                         , vel(:,:) &! velocitie
+                         , acc(:,:) &! acceleration
+                         , frc(:,:) &! forces
+                         , EAM(:)    ! EAM potentials      
 
-  INTEGER :: nPart       &! total number of atoms in the system
-           , nTstps      &! number of timesteps
-           , nSpcis      &! number of species in the system
-           , nSamps      &! number of samples
-           , sampOffset  &! number of timesteps between two samples except for the last one
-           , sampStp     &! tstp of sampling
-           , sampK		 &! sample counter  
-           , tstp ,ix, j         ! counters
-  INTEGER, ALLOCATABLE :: AtNums(:)     &! atomic numbers of each species A1, A2, ... 
-                        , atNumsVec(:)  &!  A1,A1,A1,....; A2,A2,A2... 
-                        , n_atoms(:)         ! numbers of atoms of each species n1, n2 ,..
-  TYPE(timestep_saver), DIMENSION(:), ALLOCATABLE :: timestep_samples
-  TYPE(EAM_data) :: EAMdata, EAMdiff         
+  INTEGER :: nPart   &! total number of atoms in the system
+           , nTstps  &! number of timesteps
+           , nSpcis  &! number of species in the system
+           , nSamp   &! number of samples
+           , sampOfs &! number of timesteps between two samples except for the last one
+           , samptp  &! tstp of sampling
+           , sampK   &! sample counter  
+           , tstp ,ix, jx , k, l ! counters
 
+  INTEGER, ALLOCATABLE :: AtNums(:)    &! atomic numbers of each species A1, A2, ... 
+                        , atNumsVec(:) &!  A1,A1,A1,....; A2,A2,A2... 
+                        , nAtms(:)      ! numbers of atoms of each species n1, n2 ,..
+
+  TYPE(timestep_sample), DIMENSION(:), ALLOCATABLE :: samp
+
+  TYPE(EAM_data) :: EAMdata        
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ! MAIN
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  WRITE(*,*) 'This is my simple MD code, implemneted with fortran 90'
-  ! Read from input: all vectores atomic number ordered, ascending   
-  ! Lenght unit: angestrom
-  CALL get_input(t, dt, temperature, volume, nTstps, samp_interval, &
-                 nPart, nSpcis, n_atoms, AtNums, atNumsVec, AtMas)
-  ! allocate and initialize saver
-  sampOffset = Floor(samp_interval / dt * 1.0)
-  nSamps = 1 + FLOOR(nTstps / sampOffset * 1.0)
-  ALLOCATE(timestep_samples(0:nSamps))                           
-  DO ix = 0, nSamps
-    ALLOCATE(timestep_samples(ix)%xyz_save(nPart,3)) ! N*3 matrix
-    ALLOCATE(timestep_samples(ix)%vel_save(nPart,3)) ! N*3 matrix
-    ALLOCATE(timestep_samples(ix)%acc_save(nPart,3)) ! N*3 matrix
-    ALLOCATE(timestep_samples(ix)%frc_save(nPart,3)) ! N*3 matrix
-    ALLOCATE(timestep_samples(ix)%EAM_save(nPart))   ! N*1 matrix
-    timestep_samples(ix)%xyz_save(:,:) = 0 
-    timestep_samples(ix)%vel_save(:,:) = 0       
-    timestep_samples(ix)%acc_save(:,:) = 0
-    timestep_samples(ix)%frc_save(:,:) = 0
-    timestep_samples(ix)%EAM_save(:)   = 0
-    timestep_samples(ix)%kin_save      = 0
-    timestep_samples(ix)%E_save        = 0
-    timestep_samples(ix)%err_save      = 0
-  END DO
-    
-  !allocate and initialize timestep variables
-  ALLOCATE(xyz(nPart,3)) ! N*3 matrix
-  ALLOCATE(vel(nPart,3)) ! N*3 matrix
-  ALLOCATE(acc(nPart,3)) ! N*3 matrix
-  ALLOCATE(frc(nPart,3)) ! N*3 matrix
-  ALLOCATE(EAM(nPart))   ! N*1 matrix
-  xyz(:,:) = 0 
-  vel(:,:) = 0       
-  acc(:,:) = 0
-  frc(:,:) = 0
-
-!ALLOCATE(dotEAM(nPart))
-!********************************************************************************
-  ! read EAM potential data from Ni-Co eam.alloy file
-  ! unites: Angestrom, ev
+! Read from input: all vectores atomic number ordered, ascending   
+! Lenght unit: angestrom
+  CALL get_input(t, dt, Temp, vol, nTstps, smpInt, &
+                 nPart, nSpcis, nAtms, AtNums, atNumsVec, AtMas)
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+! Allocate and initialize all to Zero
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  sampOfs = Floor(smpInt / dt * 1.0)
+  nSamp = 1 + FLOOR(nTstps / sampOfs * 1.0)
+  CALL do_Alloc(xyz, vel, frc, acc, EAM, samp, nSamp, nPart)
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+! read EAM potential data from Ni-Co eam.alloy file
+! unites: Angestrom, ev
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   CALL do_get_EAMPotData(EAMdata)
-  ! calculate derivitives of EAM nested functions
-  CALL do_calc_drEAMData(EAMdata, EAMdiff) 
- 
-!********************************************************************************
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !time step loop
-!********************************************************************************
-  sampStp = 0
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  samptp = 0
   sampK = 0
-  DO tstp= 0, 2!nTstps
+  DO tstp= 0, nTstps
     IF (tstp==0) THEN
-      CALL do_rand_xyz(xyz, volume)
-      CALL do_rand_vel(vel, temperature, AtMas)          
-      CALL do_fix_centerOfmass(vel, AtMas)	   
+      CALL do_rand_xyz(xyz, vol)
+      CALL do_rand_vel(vel, Temp, AtMas)          
+      CALL do_fix_centerOfmass(vel, AtMas)
     ELSE
       CALL do_velverlet(xyz, vel, acc, frc, AtMas, dt)
     END IF
-    ! Thermostat - Scale velocity with designated T
-    CALL do_scale_vel(vel, temperature, AtMas)
-    ! Perodic boundary - Recursive
-	CALL do_FixXYZ(xyz(1:nPart,1:3), volume)
-!REAL(dp) :: A(4,3)  
-!A(1,:)=(/1.2,-2.3,4.2/)
-!A(2,:)=(/2.2,1.2,-4.3/)
-!A(3,:)=(/1.2,1.2,10.0/)
-!A(4,:)=(/-1.5,-1.8,-4.1/)
-!PRINT*, '*******************original', tstp
-!PRINT*, A(1,:)
-!PRINT*, A(2,:)
-!PRINT*, A(3,:)
-!PRINT*, A(4,:)
 
-    ! Calculate force
-    CALL do_calcFrc(frc, EAM, xyz, AtMas, AtNums, atNumsVec, n_atoms, EAMdata, EAMdiff)
-    ! Calculate total kinetic energy
+! Thermostat - Scale velocity with designated T
+    CALL do_scaleVel(vel, Temp, AtMas)
 
-    kin = 0 
-    DO j= 1, 3
-      Kin = kin + 0.5 * sum(AtMas(:) * vel(:,j)**2)	  
-    END DO  
-!Print*, '(2)', kin		
+! Perodic boundary - Recursive
+    CALL do_FixXYZ(xyz(1:nPart,1:3), vol)
 
-!    kin =0
-!    Kin =  sum(0.5 * AtMas(1:nPart) * sum(vel(1:nPart,1:3)**2)	  	) / npart
-!Print*, '(3)', kin	
+! Calculate force
+    CALL do_calcFrc(frc, EAM, xyz, AtMas, AtNums, atNumsVec, nAtms, EAMdata)
 
-    ! sample initial values
+! Calculate total kinetic energy
+    CALL do_calcKin(Kin, AtMas, vel)
+
+! sample initial values
     E = sum(EAM(:)) + Kin
     IF (tstp==0) THEN
       E0 = E0
     END IF
     
-    IF ( tstp==sampStp ) THEN
-	  timestep_samples(sampK)%xyz_save(:,:) = xyz(:,:)    
-      timestep_samples(sampK)%vel_save(:,:) = vel(:,:)
-      timestep_samples(sampK)%acc_save(:,:) = acc(:,:)
-      timestep_samples(sampK)%frc_save(:,:) = frc(:,:)
-      timestep_samples(sampK)%EAM_save(:) = EAM(:)
-      timestep_samples(sampK)%kin_save = kin
-      timestep_samples(sampK)%E_save = E
-      timestep_samples(sampK)%err_save = (E-E0)/E0
-      IF (sampStp+sampOffset <= nTstps) THEN
-        sampStp = sampStp + sampOffset  
+    IF ( tstp==samptp ) THEN
+      samp(sampK)%xyz(:,:) = xyz(:,:)    
+      samp(sampK)%vel(:,:) = vel(:,:)
+      samp(sampK)%acc(:,:) = acc(:,:)
+      samp(sampK)%frc(:,:) = frc(:,:)
+      samp(sampK)%EAM(:) = EAM(:)
+      samp(sampK)%kin = kin
+      samp(sampK)%E = E
+      samp(sampK)%error = (E-E0)/E0
+      samp(sampK)%time = tstp * dt
+      IF (samptp+sampOfs <= nTstps) THEN
+        samptp = samptp + sampOfs  
       ELSE
-        sampStp = nTstps  
+        samptp = nTstps  
       END IF    
-	  sampK = sampK + 1
+        sampK = sampK + 1
+        WRITE(*,*), 'timestep ', tstp, ' from ', nTstps, 'dt (sec)= ', dt, 't (sec)= ', nTstps * dt
     END IF
-!Print*, tstp
   END DO
-  !ToDo  : print to file
-  
-!********************************************************************************
-END PROGRAM molecular_dynamics
-!********************************************************************************
-!write(*,*) 'number of atoms: ', n_atoms(:)
-!write(*,*) 'atomic numbers: ', AtNums(:)
-!write(*,*) 'AtMas: ',AtMas(1:size(AtMas))
-!write(*,*) 't: ', t, 'dt: ', dt, 'T: ', temperature, 'V:', volume, &
-!           'sampling offset: ', sampOffset,  'number of timesteps: ', n_timestps
-!write(*,*) 'number of particles: ', nPart, 'number of species:', nSpcis           
+
+
+open(unit=27, file="data.md", action="write", status="replace")
+open(unit=26, file="readme.md", action="write", status="replace")
+open(unit=25, file="energies.md", action="write", status="replace")
+open(unit=24, file="pot.md", action="write", status="replace")
+open(unit=23, file="frc.md", action="write", status="replace")
+open(unit=22, file="acc.md", action="write", status="replace")
+open(unit=21, file="vel.md", action="write", status="replace")
+open(unit=20, file="xyz.md", action="write", status="replace")
+
+write(26,*), 'All values are sorted by atomic numbers of species (ascending)'
+write(26,*), '******************************************************************************'
+write(26,*), 'Number of atoms = ', nPart
+write(26,*), 'Number of species = ', nSpcis
+write(26,*), 'Atomic numbers of species = ', atNums
+write(26,*), 'Numbers of atoms of each species = ', nAtms
+write(26,*), '******************************************************************************'
+write(26,*), 'Simulation Temp [K] = ', Temp
+write(26,*), 'vol of the box[Ang^3] = ' , vol
+write(26,*), 'Simulation time [sec]= ', t
+write(26,*), 'Time step [sec] = ', dt
+write(26,*), 'Number of time steps = ', nTstps
+write(26,*), '******************************************************************************'
+write(26,*), 'Sampling interval [sec] = ', smpInt
+write(26,*), 'Number of Samples (starting from 0) / per atom = ', sampK
+write(26,*), '******************************************************************************'
+write(26,*), 'File Format :: xyz.md, vel.md. acc.md, frc.md'
+write(26,*), "line#	 ", "sample# ","time[sec]	 ",&
+             "x [Ang]	 " ,"y [Ang]	 ","z [Ang] "
+write(26,*), '******************************************************************************'
+write(26,*), 'File Format :: pot.md - potential energy of each atom'
+write(26,*), "line#	 ", "sample#	 ","time[sec]	 ", "Pot [ev]	 "
+write(26,*), '******************************************************************************'
+write(26,*), 'File Format :: Energies.md - Energy of the system'
+write(26,*), "line#	 ", "sample#	 ","time[sec]	 ", "Total Energy [ev]	 ", &
+              "kinetic Energy [ev]	 ","Potential Energy [ev]	 ", "Relative erroror"
+write(26,*), '******************************************************************************'
+
+
+k = 1
+l = 1
+do jx = 1, npart
+  do ix = 0, sampk-1
+    write(20,*), k, ix, samp(ix)%time,  samp(ix)%xyz(jx,1:3)
+    write(21,*), k, ix, samp(ix)%time,  samp(ix)%vel(jx,1:3)
+    write(22,*), k, ix, samp(ix)%time,  samp(ix)%acc(jx,1:3)
+    write(23,*), k, ix, samp(ix)%time,  samp(ix)%frc(jx,1:3)
+    write(24,*), k, ix, samp(ix)%time,  samp(ix)%eam(jx)
+    k= k+1
+  end do
+  write(25,*), l, ix, samp(ix)%time,  samp(ix)%E, &
+               samp(ix)%Kin,                                  &
+               samp(ix)%E - samp(ix)%Kin,    &
+               samp(ix)%error                   
+  l = l + 1 
+end do
+
+write(27,*), nPart, nSpcis, nAtms, sampk
+
+CLOSE(UNIT=20)
+CLOSE(UNIT=21)
+CLOSE(UNIT=22)
+CLOSE(UNIT=23)
+CLOSE(UNIT=24)
+CLOSE(UNIT=25)
+CLOSE(UNIT=26)
+CLOSE(UNIT=27)
+
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+END PROGRAM md
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

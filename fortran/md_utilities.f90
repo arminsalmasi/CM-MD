@@ -1,11 +1,60 @@
-MODULE utilities
+MODULE util
 !##########################################################  
-  USE global
+  USE glbl
 !##########################################################  
   REAL, PRIVATE    :: zero = 0.0, half = 0.5, one = 1.0, two = 2.0
   PRIVATE          :: integral
 !##########################################################  
 CONTAINS   
+!##########################################################  
+!##########################################################  
+SUBROUTINE do_Alloc(xyz, vel, frc, acc, EAM, samp, nSamp, nPart)
+!##########################################################  
+  IMPLICIT NONE
+
+  REAL(dp), ALLOCATABLE :: xyz(:,:) &! coordinate 
+                         , vel(:,:) &! velocitie
+                         , acc(:,:) &! acceleration
+                         , frc(:,:) &! forces
+                         , EAM(:)    ! EAM potentials      
+
+  INTEGER :: nPart   &! total number of atoms in the system
+           , nSamp   &! number of samples
+           , ix        ! counters
+
+  TYPE(timestep_sample), DIMENSION(:), ALLOCATABLE :: samp
+
+  ALLOCATE(samp(0:nSamp))                           
+  DO ix = 0, nSamp
+    ALLOCATE(samp(ix)%xyz(nPart,3)) ! N*3 matrix
+    ALLOCATE(samp(ix)%vel(nPart,3)) ! N*3 matrix
+    ALLOCATE(samp(ix)%acc(nPart,3)) ! N*3 matrix
+    ALLOCATE(samp(ix)%frc(nPart,3)) ! N*3 matrix
+    ALLOCATE(samp(ix)%EAM(nPart))   ! N*1 matrix
+    samp(ix)%xyz(:,:) = 0D0 
+    samp(ix)%vel(:,:) = 0D0        
+    samp(ix)%acc(:,:) = 0D0 
+    samp(ix)%frc(:,:) = 0D0 
+    samp(ix)%EAM(:)   = 0D0 
+    samp(ix)%kin      = 0D0 
+    samp(ix)%E        = 0D0 
+    samp(ix)%error    = 0D0 
+  END DO
+    
+! Allocate and initialize timestep variables
+  ALLOCATE(xyz(nPart,3)) ! N*3 matrix
+  ALLOCATE(vel(nPart,3)) ! N*3 matrix
+  ALLOCATE(acc(nPart,3)) ! N*3 matrix
+  ALLOCATE(frc(nPart,3)) ! N*3 matrix
+  ALLOCATE(EAM(nPart))   ! N*1 matrix
+  xyz(:,:) = 0D0  
+  vel(:,:) = 0D0        
+  acc(:,:) = 0D0 
+  frc(:,:) = 0D0  
+
+END SUBROUTINE do_Alloc
+
+!##########################################################
 !##########################################################
 SUBROUTINE do_rand_xyz(xyz, V)
 !##########################################################   
@@ -23,6 +72,7 @@ SUBROUTINE do_rand_xyz(xyz, V)
    
 END SUBROUTINE do_rand_xyz
    
+!##########################################################
 !##########################################################
 SUBROUTINE do_rand_vel(v, T, m)
 !##########################################################     
@@ -45,11 +95,14 @@ SUBROUTINE do_rand_vel(v, T, m)
 END SUBROUTINE do_rand_vel
    
 !##########################################################
+!##########################################################
 SUBROUTINE do_fix_centerOfMass(v, m)
 !##########################################################     
      IMPLICIT NONE
+     
      INTEGER :: ix  &
               , np
+     
      REAL(dp) :: v(:,:)                         &
                , vcm_tmp(SIZE(v,1), SIZE(v,2))  &
                , vcm = 0                        &
@@ -66,12 +119,14 @@ SUBROUTINE do_fix_centerOfMass(v, m)
 END SUBROUTINE do_fix_centerOfMass
    
 !##########################################################
-SUBROUTINE do_scale_vel(v, T, m )
+SUBROUTINE do_scaleVel(v, T, m )
 !##########################################################      
      IMPLICIT NONE
+     
      INTEGER :: k  &
               , ix  &
               , np
+     
      REAL(dp) :: v(:,:)   &
                , T          &
                , Tscale     &
@@ -93,21 +148,24 @@ SUBROUTINE do_scale_vel(v, T, m )
           k= k + 1  
        END DO
 
-END SUBROUTINE do_scale_vel                   
+END SUBROUTINE do_scaleVel                   
 
 !##########################################################
 SUBROUTINE do_velVerlet(xyz, v, a, f, m, dt)  
 !##########################################################
      IMPLICIT NONE
+     
      INTEGER :: i    & 
               , nRho &
               , nR  
+     
      REAL(dp) :: xyz(:,:)    &
                , v(:,:)      &
                , a(:,:)      &
                , f(:,:)      &
                , m(:)        &
                , dt                                   
+     
      REAL(dp), ALLOCATABLE :: mdiv(:)
 
      ALLOCATE(mdiv(SIZE(m)))
@@ -122,221 +180,47 @@ END SUBROUTINE do_velVerlet
   
 !########################################################## 
 !########################################################## 
-SUBROUTINE do_calcFrc(frc, U, xyz, m, AtN, atNVec, nAt, EAMdata, EAMDiff)
+SUBROUTINE do_calcFrc(F, U, xyz, m, AtN, atNVec, nAt, EAMdata)
 !##########################################################    
   IMPLICIT NONE
-  REAL(dp), ALLOCATABLE :: Frc(:,:)  &
-            , xyz(:,:)     &
-            , m(:)         &
-            , U(:), U_d(:) &
-            , xyz_d(:,:)
-  TYPE(EAM_data) :: EAMData &
-                  , EAMDiff
-  INTEGER :: nAt(:)         &!number of atoms of each epecies
-		   , AtN(:)         &!atomic numbers A1,A2
-		   , atNVec(:) , np      ! A1,A1,... A2,A2....
-  
-  np = SIZE(xyz,1)
-  ALLOCATE(U_d(np))
-  ALLOCATE(xyz_d(np,3))
-  
-  Frc(:,:) = 0
-  CALL do_calcEAMPot( U, xyz, m, AtN, atNVec, nAt, EAMdata, EAMDiff)
-  xyz_d(1:np,1:3) = xyz(1:np,1:3) + 10000000*EAMdata%dr
- !Print*, xyz(1,:)
- !Print*, xyz_d(1,:)
- !Print*, xyz(:,2)
- !Print*, xyz(:,3)
-  CALL do_calcEAMPot( U_d, xyz_d, m, AtN, atNVec, nAt, EAMdata, EAMDiff)
- Print*, U(10)
- Print*, U_d(10)
-  Frc(:,:) = 0 
-
-  
-!Print*, U
-!Print*, xyz
-!Print*, U_d
-!Print*, xyz_d
-Print*, '*******************************'
-  !DO ix = 1, (np-1)
-  !  Do jx = (ix+1), np 
-  !    dr(:) = xyz(ix,:) - xyz(jx,:)
-  !    ffactor = (U(ix) - U(jx)) / dr(:)    
-  !    frc(ix,:) = frc(ix,:) +  ffactor(:)
-  !    frc(jx,:) = frc(jx,:) +  ffactor(:)
-  !  END DO
-  !END DO
-
-END SUBROUTINE do_calcFrc
-
-!##########################################################
-		    
-!		   IF (ix>nAt(1)) THEN ! 28 ! note: Rho1 -- correlated with F2
-!             rho(ix)= rho(ix) + EAMData%rho1(ridx) 
-!             IF (jx>nAt(1)) THEN !28-28 ! note: first 5000==28-28== phi1
-!               phi(ix) = phi(ix) + EAMData%phi11(ridx)
-!             ELSE  !28-27 ! note 2nd 5000 phi2
-!               phi(ix) = phi(ix) + EAMData%phi21(ridx)
-!             ENDIF 
-!           
-!		   ELSE !27 ! note: rho2 -- correlated with F1
-!             Rho(ix)= Rho(ix) + EAMData%rho2(ridx) 
-!             IF (jx>nAt(1)) THEN !27-28 ! note: 2rd 5000 phi2
-!               phi(ix) = phi(ix) + EAMData%phi21(ridx)
-!             ELSE !27-27 ! note: 3rd 5000 phi 3
-!               phi(ix) = phi(ix) + EAMData%phi22(ridx)
-!             END IF
-!           END IF
-!##########################################################
-!##########################################################
-SUBROUTINE do_calcEAMPot( U, xyz, m, AtN, atNVec, nAt, EAMdata, EAMDiff)
-!##########################################################
-  IMPLICIT NONE
-  REAL(dp), ALLOCATABLE :: U(:)      &   
-                         , Frc(:,:)  &
+  REAL(dp), ALLOCATABLE :: F(:,:)  &
+                         , U(:)      &
                          , xyz(:,:)  &
                          , m(:)      &
-                         , rho(:)    &
-                         , dotrho(:) &
-                         , FxRho(:)  &
-                         , dotFxdotRho(:)   &
-                         , Phi(:)    &
-                         , dotPhi(:)
-                         
-  TYPE(EAM_data) :: EAMData &
-                  , EAMDiff
-                  
-  REAL(dp) :: r ,dr(3), ffactor(3)
+                         , Ud(:)     &    
+                         , xyzd(:,:)
+  REAL(dp) :: drdiv
   
-  INTEGER :: ix, jx, kx, np &
-           , ridx, rhoidx   &    
-           , nAt(:)         &!number of atoms of each epecies
-		   , AtN(:)         &!atomic numbers A1,A2
-		   , atNVec(:)       ! A1,A1,... A2,A2....
+  TYPE(EAM_data) :: EAMData 
+
+  INTEGER :: nAt(:)         &!number of atoms of each epecies
+           , AtN(:)         &!atomic numbers A1,A2
+           , atNVec(:)      & ! A1,A1,... A2,A2....
+           , np             &
+           , ix , jx
 
   np = SIZE(xyz,1)
-  ALLOCATE(rho(np))
-  ALLOCATE(dotrho( np))
-  ALLOCATE(FxRho(np))
-  ALLOCATE(dotFxdotRho(np))
-  ALLOCATE(phi(np))
-  ALLOCATE(dotphi(np))
-  
-  U(:) = 0
-  Rho(:) = 0.0
-  Phi(:) = 0.0
-  dotRho(:) = 0.0
-  dotPhi(:) = 0.0
-  FxRho(:) = 0.0
-  dotFxdotRho(:) =0.0
-   
-  
-  DO ix = 1 , np
-    DO jx = 1 , np
-      IF (ix/=jx) THEN
-        r = sqrt( sum( (xyz(ix,:) - xyz(jx,:) ) ** 2 ) )
-        ridx = floor(r / (EAMData%dr))
-		
-        IF ( (0 < ridx) .AND. (ridx<=floor(EAMData%cutoff/EAMData%dr)) ) THEN
-		  ! F1, Rho1 :: 28
-          ! F2, Rho2 :: 27
-          ! Phi11 = 28-28
-          ! phi21 = 27-28
-          ! phi22 = 27-27		  
-          IF (atNVec(ix)==atN(1)) THEN                    ! ix = 27
-            rho(ix)= rho(ix) + EAMData%rho1(ridx)          ! rho1 = 28
-			  IF (atNVec(jx)==atN(1)) THEN                    ! jx = 27
-			                                                    ! phi22 = 27-27
-                phi(ix) = phi(ix) + EAMData%phi22(ridx)/ridx/EAMData%dr        
-              ELSE                                            ! jx = 28
-                                                                ! phi21 = 27-28			  
-                phi(ix) = phi(ix) + EAMData%phi21(ridx)/ridx/EAMData%dr        
-              ENDIF 
-		    ELSE                                          ! ix = 28
-              Rho(ix)= Rho(ix) + EAMData%rho2(ridx)         ! rho2 = 27 
-              IF (atNVec(jx)==atN(1)) THEN                    ! jx = 27
-                                                                ! phi21 = 28-27  			  
-                phi(ix) = phi(ix) + EAMData%phi21(ridx)/ridx/EAMData%dr        
-              ELSE                                            ! jx = 28
-			                                                    ! phi11= 28-28  
-                phi(ix) = phi(ix) + EAMData%phi11(ridx)/ridx/EAMData%dr        
-              END IF
-            END IF		
-        END IF
-      END IF
-	  
+  ALLOCATE(Ud(np))
+  ALLOCATE(xyzd(np,3))
+  U(:) = 0D0
+  F(:,:) = 0D0
+  drdiv = 1D0/EAMdata%dr
+  DO ix = 1, np
+    CALL do_calcEAMPot( U(ix), ix, xyz, m, AtN, atNVec, nAt, EAMdata)
+    DO jx = 1, 3
+      xyzd(:,:) = xyz(:,:)
+      xyzd(ix,jx) = xyz(ix,jx) + EAMdata%dr
+      CALL do_calcEAMPot( Ud(ix), ix, xyzd, m, AtN, atNVec, nAt, EAMdata)
+      F(ix,jx) = (Ud(ix) - U(ix)) * drdiv
     END DO
-    rhoidx = floor(rho(ix)/(EAMData%drho)) 
-    IF (atNVec(ix)==atN(1)) THEN                ! 27 
-      FxRho(ix) = rho(ix) * EAMData%F2(rhoidx)    ! F2  
-    ELSE                                        ! 28
-      FxRho(ix) = Rho(ix) * EAMData%F1(rhoidx)    ! F1
-    END IF
-    U(ix) =  FxRho(ix) + 0.5 * Phi(ix)
   END DO
-  
-END SUBROUTINE do_calcEAMPot
-
-!##########################################################
-!##########################################################
-SUBROUTINE do_genRand(r,m,j)
-!##########################################################
-    IMPLICIT NONE
-    INTEGER :: i     &
-             , j     &
-             , m     &
-             , n     &
-             , clock
-    INTEGER, ALLOCATABLE :: seed(:)
-    REAL(dp) :: r(m)
-    
-    CALL RANDOM_SEED(SIZE=n)
-    ALLOCATE(seed(n))
-    CALL SYSTEM_CLOCK(COUNT=clock)
-    clock = clock * j 
-    seed = clock + 37 * (/ (i - 1, i = 1, n) /)
-    CALL RANDOM_SEED(PUT=seed)
-    call RANDOM_NUMBER(r)
-    DEALLOCATE(seed)
-  
-END SUBROUTINE do_genRand
+ 
+END SUBROUTINE do_calcFrc
 
 !########################################################## 
-!########################################################## 
-FUNCTION rand_normal2(n) 
-!##########################################################  
-  ! https://rosettacode.org/wiki/Random_numbers#Fortran 
-  ! Based on Box–Muller transform
-  ! More ifor in : 
-  ! http://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
-  ! https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
-    IMPLICIT NONE
-    INTEGER  :: i               & ! Loop variabel
-              , n                 ! Lenght of array = number of random samples / from input
-    REAL(dp) :: array(n)        &
-              , rand_normal2(n) & ! Function Return :: dp random numbers
-              , pi              & ! Pi number
-              , temp            & ! just a holder
-              , mean = 0.0      & ! from http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html //equlized with randn function in matlab 
-              , sd = 1.0          ! from http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html //equlized with randn function in matlab 
-    
-    pi = 4.0*ATAN(1.0)
-    CALL do_genRand(array,n,1)
-  ! Now convert to normal distribution
-    DO i = 1, n-1, 2
-      temp = sd * SQRT(-2.0*LOG(array(i))) * COS(2*pi*array(i+1)) + mean
-      array(i+1) = sd * SQRT(-2.0*LOG(array(i))) * SIN(2*pi*array(i+1)) + mean
-      array(i) = temp
-    END DO
-  ! Check mean and standard deviation
-    mean = SUM(array)/n
-    sd = SQRT(SUM((array - mean)**2)/n)     
-!WRITE(*, "(A,F8.6)") "Mean = ", mean
-!WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd      
-    rand_normal2(:) = array(:)
-END FUNCTION rand_normal2
 !########################################################## 
 RECURSIVE SUBROUTINE do_FixXYZ(xyz, V)
+!########################################################## 
   IMPLICIT NONE
   REAL(dp) :: xyz(3) &! positions
             , V        &! volume
@@ -359,9 +243,44 @@ RECURSIVE SUBROUTINE do_FixXYZ(xyz, V)
         END IF
       END IF
     END DO
-END SUBROUTINE do_FixXYZ
-!########################################################## 
 
+END SUBROUTINE do_FixXYZ
+
+!REAL(dp) :: A(4,3)  
+!A(1,:)=(/1.2,-2.3,4.2/)
+!A(2,:)=(/2.2,1.2,-4.3/)
+!A(3,:)=(/1.2,1.2,10.0/)
+!A(4,:)=(/-1.5,-1.8,-4.1/)
+!PRINT*, '*******************original', tstp
+!PRINT*, A(1,:)
+!PRINT*, A(2,:)
+!PRINT*, A(3,:)
+!PRINT*, A(4,:)
+
+!########################################################## 
+!########################################################## 
+SUBROUTINE do_calcKin(K, m ,v)
+!########################################################## 
+  IMPLICIT NONE
+ 
+  REAL(dp) :: k     &! kinetic energy
+            , m(:)  &! mass
+            , v(:,:) ! velocity
+  INTEGER :: jx
+
+  k = 0D0
+  DO jx= 1, 3
+    K = k + 0.5 * sum(m(:) * v(:,jx)**2)
+  END DO  
+  
+END SUBROUTINE do_calcKin  
+
+!Print*, '(2)', kin		
+!    kin =0
+!    Kin =  sum(0.5 * AtMas(1:nPart) * sum(vel(1:nPart,1:3)**2)	  	) / npart
+!Print*, '(3)', kin	
+
+!########################################################## 
 !########################################################## 
 SUBROUTINE do_calcT(T, v, m)
 !##########################################################    
@@ -381,95 +300,162 @@ SUBROUTINE do_calcT(T, v, m)
 
 END SUBROUTINE do_calcT
 
-!########################################################## 
-!########################################################## 
-SUBROUTINE do_get_EAMPotData(EAMdata)
-!##########################################################    
-    IMPLICIT NONE
-    INTEGER :: nrho       &
-             , nr         &
-             , ix, jx, kx
-    REAL(dp), ALLOCATABLE :: allData(:,:)    &
-                           , allData_line(:) 
-    TYPE(EAM_data) :: EAMdata 
-    
-    EAMdata%nrho = 5000 
-    EAMdata%drho = 1.2999078e-03 
-    EAMdata%nr = 5000 
-    EAMdata%dr = 1.2999078e-03 
-    EAMdata%cutoff = 6.499539
-    ALLOCATE(allData(1:7000, 1:5))
-    ALLOCATE(allData_line(1: SIZE(allDATA,1)* SIZE(allDATA,2)))
-    ALLOCATE(EAMdata%F1(nrho))
-    ALLOCATE(EAMdata%rho1(nr))
-    ALLOCATE(EAMdata%F2(nrho))
-    ALLOCATE(EAMdata%rho2(nr))
-    ALLOCATE(EAMdata%phi11(nr))
-    ALLOCATE(EAMdata%phi21(nr))
-    ALLOCATE(EAMdata%phi22(nr))
-    OPEN(UNIT=22,FILE="pot-Ni-Co-old.dat",FORM="FORMATTED",STATUS="OLD",ACTION="READ")
-      DO ix = 1 , 7000
-        READ(22,*) allData(ix,:)
-      END DO
-    CLOSE(UNIT=22)
-    kx=1
-    DO ix = 1 , 7000
-      DO jx = 1 , 5
-        allData_line(kx) = allData(ix,jx)
-        kx=kx+1
-      END DO
-    END DO
-    EAMdata%F1 = allData_line(1:5000)
-    EAMdata%rho1 = allData_line(5001:10000)
-    EAMdata%F2 = allData_line(10001:15000)
-    EAMdata%rho2 = allData_line(15001:20000)
-    EAMdata%phi11 = allData_line(20001:25000)
-    EAMdata%phi21 = allData_line(25001:30000)
-    EAMdata%phi22 = allData_line(30001:35000)
-
-END SUBROUTINE do_get_EAMPotData
-
-!##########################################################   
-!##########################################################   
-SUBROUTINE do_fdmDiff(dfx, f, dx)
-!##########################################################    
+!##########################################################
+!##########################################################
+SUBROUTINE do_calcEAMPot( U, ix, xyz, m, AtN, atNVec, nAt, EAMdata)
+!##########################################################
   IMPLICIT NONE
-  REAL(dp) :: f(:) &
-            , dx   &
-            , h
   
-  REAL(dp), ALLOCATABLE :: dfx(:)
-  INTEGER :: L , ix
+  REAL(dp), ALLOCATABLE :: xyz(:,:)  &
+                         , m(:)      
   
-  L = SIZE(f,1)
-  ALLOCATE(dfx(1:L))
-  dfx(:) = 0.0
-  h = 1 / (2*dx)  
-  DO ix = 2, L-1
-    dfx(ix) = (f(ix+1)-f(ix-1)) * h
+  TYPE(EAM_data) :: EAMData
+                  
+  REAL(dp) :: U, Rho, FxRho, Phi, r
+  
+  INTEGER :: ix, jx, kx, np &
+           , ridx, rhoidx   &    
+           , nAt(:)         &!number of atoms of each epecies
+           , AtN(:)         &!atomic numbers A1,A2
+           , atNVec(:)       ! A1,A1,... A2,A2....
+
+  np = SIZE(xyz,1)
+  U = 0D0
+  Rho = 0D0
+  Phi = 0D0
+  FxRho = 0D0
+   
+  DO jx = 1 , np
+    IF (ix/=jx) THEN
+      r = sqrt( sum( (xyz(ix,:) - xyz(jx,:) ) ** 2 ) )
+      ridx = floor(r / (EAMData%dr))
+      IF ( (0 < ridx) .AND. (ridx<=floor(EAMData%cutoff/EAMData%dr)) ) THEN
+        ! F1, Rho1 :: 28
+        ! F2, Rho2 :: 27
+        ! Phi11 = 28-28
+        ! phi21 = 27-28
+        ! phi22 = 27-27		  
+        IF (atNVec(ix)==atN(1)) THEN                    ! ix = 27
+          Rho= Rho + EAMData%rho1(ridx)          ! rho1 = 28
+          IF (atNVec(jx)==atN(1)) THEN                    ! jx = 27
+                                                           ! phi22 = 27-27
+              Phi = Phi + EAMData%phi22(ridx)/ridx/EAMData%dr        
+            ELSE                                            ! jx = 28
+                                                              ! phi21 = 27-28			  
+              Phi = Phi + EAMData%phi21(ridx)/ridx/EAMData%dr        
+            ENDIF 
+          ELSE                                          ! ix = 28
+            Rho= Rho + EAMData%rho2(ridx)         ! rho2 = 27 
+            IF (atNVec(jx)==atN(1)) THEN                    ! jx = 27
+                                                              ! phi21 = 28-27  			  
+              Phi = Phi + EAMData%phi21(ridx)/ridx/EAMData%dr        
+            ELSE                                            ! jx = 28
+                                                              ! phi11= 28-28  
+              Phi = Phi + EAMData%phi11(ridx)/ridx/EAMData%dr        
+            END IF
+          END IF
+      END IF
+    END IF
   END DO
-  dfx(1) = dfx(2) 
-  dfx(L) = dfx(L-1)
+  rhoidx = floor(rho/(EAMData%drho)) 
+  IF (atNVec(ix)==atN(1)) THEN        ! 27 
+    FxRho = Rho * EAMData%F2(rhoidx)    ! F2  
+  ELSE                                ! 28
+    FxRho = Rho * EAMData%F1(rhoidx)    ! F1
+  END IF
 
-END SUBROUTINE do_fdmDiff
+  U =  FxRho + 0.5 * Phi
+  
+END SUBROUTINE do_calcEAMPot
 
 !##########################################################
-!##########################################################   
-SUBROUTINE do_calc_drEAMData(EAMdata, EAMdiff)
+!##########################################################
+SUBROUTINE do_genRand(r,m,j)
 !##########################################################
   IMPLICIT NONE
-                         
-  TYPE(EAM_data) :: EAMdata, EAMdiff 
- 
-  CALL do_fdmDiff(EAMDiff%F1    ,EAMdata%F1    , EAMdata%drho)  
-  CALL do_fdmDiff(EAMDiff%rho1  ,EAMdata%rho1 , EAMdata%dr  ) 
-  CALL do_fdmDiff(EAMDiff%F2    ,EAMdata%F2   , EAMdata%drho)     
-  CALL do_fdmDiff(EAMDiff%rho2  ,EAMdata%rho2 , EAMdata%dr  ) 
-  CALL do_fdmDiff(EAMDiff%phi11 ,EAMdata%phi11, EAMdata%dr  ) 
-  CALL do_fdmDiff(EAMDiff%phi21 ,EAMdata%phi21, EAMdata%dr  ) 
-  CALL do_fdmDiff(EAMDiff%phi22 ,EAMdata%phi22, EAMdata%dr  ) 
+  
+  INTEGER :: i     &
+           , j     &
+           , m     &
+           , n     &
+           , clock
+  
+  INTEGER, ALLOCATABLE :: seed(:)
+  
+  REAL(dp) :: r(m)
+    
+  CALL RANDOM_SEED(SIZE=n)
+  ALLOCATE(seed(n))
+  CALL SYSTEM_CLOCK(COUNT=clock)
+  clock = clock * j 
+  seed = clock + 37 * (/ (i - 1, i = 1, n) /)
+  CALL RANDOM_SEED(PUT=seed)
+  call RANDOM_NUMBER(r)
+  DEALLOCATE(seed)
+  
+END SUBROUTINE do_genRand
 
-END SUBROUTINE do_calc_drEAMData
-!##########################################################
- 
-END MODULE utilities
+!########################################################## 
+!########################################################## 
+FUNCTION rand_normal2(n) 
+!##########################################################  
+  ! https://rosettacode.org/wiki/Random_numbers#Fortran 
+  ! Based on Box–Muller transform
+  ! More ifor in : 
+  ! http://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
+  ! https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+  IMPLICIT NONE
+  INTEGER  :: i               & ! Loop variabel
+            , n                 ! Lenght of array = number of random samples / from input
+  REAL(dp) :: array(n)        &
+            , rand_normal2(n) & ! Function Return :: dp random numbers
+            , pi              & ! Pi number
+            , temp            & ! just a holder
+            , mean = 0.0      & ! from http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html //equlized with randn function in matlab 
+            , sd = 1.0          ! from http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html //equlized with randn function in matlab 
+    
+  pi = 4.0*ATAN(1.0)
+  CALL do_genRand(array,n,1)
+  ! Now convert to normal distribution
+  DO i = 1, n-1, 2
+    temp = sd * SQRT(-2.0*LOG(array(i))) * COS(2*pi*array(i+1)) + mean
+    array(i+1) = sd * SQRT(-2.0*LOG(array(i))) * SIN(2*pi*array(i+1)) + mean
+    array(i) = temp
+  END DO
+  ! Check mean and standard deviation
+  mean = SUM(array)/n
+  sd = SQRT(SUM((array - mean)**2)/n)     
+  !WRITE(*, "(A,F8.6)") "Mean = ", mean
+  !WRITE(*, "(A,F8.6)") "Standard Deviation = ", sd      
+  rand_normal2(:) = array(:)
+
+END FUNCTION rand_normal2
+
+
+END MODULE util
+
+
+!!!~!##########################################################   
+!!!~!##########################################################   
+!!!~SUBROUTINE do_fdmDiff(dfx, f, dx)
+!!!~!##########################################################    
+!!!~  IMPLICIT NONE
+!!!~  REAL(dp) :: f(:) &
+!!!~            , dx   &
+!!!~            , h
+!!!~  
+!!!~  REAL(dp), ALLOCATABLE :: dfx(:)
+!!!~  INTEGER :: L , ix
+!!!~  
+!!!~  L = SIZE(f,1)
+!!!~  ALLOCATE(dfx(1:L))
+!!!~  dfx(:) = 0.0
+!!!~  h = 1 / (2*dx)  
+!!!~  DO ix = 2, L-1
+!!!~    dfx(ix) = (f(ix+1)-f(ix-1)) * h
+!!!~  END DO
+!!!~  dfx(1) = dfx(2) 
+!!!~  dfx(L) = dfx(L-1)
+!!!~
+!!!~END SUBROUTINE do_fdmDiff
+!!!~!##########################################################    
