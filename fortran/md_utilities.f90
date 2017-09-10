@@ -1,3 +1,21 @@
+!##########################################################  
+! Module util (md_utilities) part of md program
+! Contains:
+!  do_alloc : allocate datatypes and allocatbale parameters of main
+!  do_rand_xyz : randomize initial positions of atoms in the box
+!  do_rand_vel : randomize initial velocity of atoms using temperature
+!  do_fix_CenterOfmas : fixes center of mass of the system
+!  do_scaleVel : sacle velocity with temperature : thermostat
+!  do_velVerlet : velocity verlet algorithm
+!  do_calcFrc : calcualte forces from EAM potentials 
+!  do_FixXYZ : periodic boundry condition
+!  do_calcKin : calcualte kinetic energy of the system
+!  do_calcT : calcualte temperature of the system
+!  do_calcEAMpot : calcualte single point EAM potential of Ni-Co system
+!  do_genrand : generate a vector of rendom numbers
+!  randNormal2 : pic random numbers from a normal distrition
+!Armin salmasi 2017-09-09
+!##########################################################  
 MODULE util
 !##########################################################  
   USE glbl
@@ -9,6 +27,12 @@ CONTAINS
 !##########################################################  
 !##########################################################  
 SUBROUTINE do_Alloc(xyz, vel, frc, acc, EAM, samp, nSamp, nPart)
+!##########################################################  
+! Initial allocation of arrays and data types:
+! xyz, velocity, force, acceleration, 
+! EAM Potentials array
+! and sampel holder
+! by nsamples and nParticles
 !##########################################################  
   IMPLICIT NONE
 
@@ -22,7 +46,7 @@ SUBROUTINE do_Alloc(xyz, vel, frc, acc, EAM, samp, nSamp, nPart)
            , nSamp   &! number of samples
            , ix        ! counters
 
-  TYPE(timestep_sample), DIMENSION(:), ALLOCATABLE :: samp
+  TYPE(timestep_sample), ALLOCATABLE :: samp(:)
 
   ALLOCATE(samp(0:nSamp))                           
   DO ix = 0, nSamp
@@ -58,8 +82,11 @@ END SUBROUTINE do_Alloc
 !##########################################################
 SUBROUTINE do_rand_xyz(xyz, V)
 !##########################################################   
+! randomize xyz positions of atoms inside the given volume 
+!##########################################################   
      INTEGER :: ix &! counter
               , np  ! number of particles
+     
      REAL(dp)  :: r(3)     & ! random number 
                 , xyz(:,:) & ! position n*3
                 , V          ! volume
@@ -76,14 +103,18 @@ END SUBROUTINE do_rand_xyz
 !##########################################################
 SUBROUTINE do_rand_vel(v, T, m)
 !##########################################################     
+! randomize initial velocity of atoms with temperature
+!##########################################################     
      IMPLICIT NONE
-     REAL(dp)  :: v(:,:) &
-                , r(3)     &
-                , vstd     &
-                , m(:)&
-                , T
-     INTEGER :: jx  &
-              , np
+
+     REAL(dp)  :: v(:,:) &! velocities
+                , r(3)   &! random numbers
+                , vstd   &! standard deviation of velocity
+                , m(:)   &! atomic masses in gram  
+                , T       ! temperature
+
+     INTEGER :: jx  &! counter
+              , np   ! number of particles
      
      np = SIZE(v,1)
      DO jx = 1 , np       
@@ -98,97 +129,105 @@ END SUBROUTINE do_rand_vel
 !##########################################################
 SUBROUTINE do_fix_centerOfMass(v, m)
 !##########################################################     
-     IMPLICIT NONE
-     
-     INTEGER :: ix  &
-              , np
-     
-     REAL(dp) :: v(:,:)                         &
-               , vcm_tmp(SIZE(v,1), SIZE(v,2))  &
-               , vcm = 0                        &
-               , m(:) 
+! fix center of mass of the system
+!##########################################################     
+  IMPLICIT NONE
+  
+  INTEGER :: ix &
+           , np  ! number of particles
+  
+  REAL(dp) :: v(:,:)                &! velocity
+            , vcm_tmp(SIZE(v,1), 3) &! swap velocity
+            , vcm = 0               &! velocity of center of mass
+            , m(:)                   ! atomic masses
 
-     np = SIZE(v,1)
-     vcm_tmp(:,:)=0
-     DO ix = 1, 3
-       vcm_tmp(:,ix) = v(:,ix) * m(:)
-     END DO
-     vcm = SUM(vcm_tmp) / SUM(m)
-     v(:,1:3) = v(:,1:3) - vcm
-    
+  np = SIZE(v,1)
+  vcm_tmp(:,:)=0
+  DO ix = 1, 3
+    vcm_tmp(:,ix) = v(:,ix) * m(:)
+  END DO
+  vcm = SUM(vcm_tmp) / SUM(m)
+  v(:,1:3) = v(:,1:3) - vcm
+ 
 END SUBROUTINE do_fix_centerOfMass
    
 !##########################################################
 SUBROUTINE do_scaleVel(v, T, m )
 !##########################################################      
-     IMPLICIT NONE
-     
-     INTEGER :: k  &
-              , ix  &
-              , np
-     
-     REAL(dp) :: v(:,:)   &
-               , T          &
-               , Tscale     &
-               , Vscale   &
-               , Ttemp      &
-               , m(:)
-       
-       np = SIZE(v,1)
-       k = 1 
-       CALL do_calcT(Ttemp, v, m)
-       Tscale = ( (T - Ttemp) / T )  * 100
-       DO WHILE ( (ABS(Tscale)>0.001) .AND. (k<1000) )
-          Vscale = sqrt( T / Ttemp)
-          DO ix = 1 , 3
-            v(:,ix) = v(:,ix) * Vscale
-          END DO 
-          CALL do_calcT(Ttemp, v , m)
-          Tscale = ( (T - Ttemp) / T )  * 100
-          k= k + 1  
-       END DO
+! scale velocity with temperature of the system: thermostat
+! partially taken from web
+!##########################################################      
+  IMPLICIT NONE
+  
+  INTEGER :: k, ix &! counters
+           , np     ! number of particles
+  
+  REAL(dp) :: v(:,:)  &! velocity
+           , T       &! temperature
+           , Tscale  &! temperature scaling parameter
+           , Vscale  &! velocity scaling parameter
+           , Ttemp   &! swap: temprature
+           , m(:)     ! atomic masses
+   
+  np = SIZE(v,1)
+  k = 1 
+  CALL do_calcT(Ttemp, v, m)
+  Tscale = ( (T - Ttemp) / T )  * 100
+  DO WHILE ( (ABS(Tscale)>0.001) .AND. (k<1000) )
+     Vscale = sqrt( T / Ttemp)
+     DO ix = 1 , 3
+       v(:,ix) = v(:,ix) * Vscale
+     END DO 
+     CALL do_calcT(Ttemp, v , m)
+     Tscale = ( (T - Ttemp) / T )  * 100
+     k= k + 1  
+  END DO
 
 END SUBROUTINE do_scaleVel                   
 
 !##########################################################
 SUBROUTINE do_velVerlet(xyz, v, a, f, m, dt)  
 !##########################################################
-     IMPLICIT NONE
-     
-     INTEGER :: i    & 
-              , nRho &
-              , nR  
-     
-     REAL(dp) :: xyz(:,:)    &
-               , v(:,:)      &
-               , a(:,:)      &
-               , f(:,:)      &
-               , m(:)        &
-               , dt                                   
-     
-     REAL(dp), ALLOCATABLE :: mdiv(:)
-
-     ALLOCATE(mdiv(SIZE(m)))
-     mdiv(:) = 1 / m(:)
-     DO i = 1 , 3
-       xyz(:,i) = xyz(:,i) + v(:,i) * dt + 0.5 * a(:,i) * dt * dt
-       v(:,i) = v(:,i) + 0.5 * ( (f(:,i) * mdiv(:)) + a(:,i) ) * dt
-       a(:,i) = f(:,i) * mdiv(:)
-     END DO
+! Velocity Verlet algorithm
+!##########################################################
+  IMPLICIT NONE
   
+  INTEGER :: ix ! counter 
+  
+  REAL(dp) :: xyz(:,:)    &! xyz positions of all atoms
+            , v(:,:)      &! xyz velocities of all atoms 
+            , a(:,:)      &! xyz accelerations of all atoms
+            , f(:,:)      &! xyz forces on all atoms
+            , m(:)        &! atomic masses
+            , dt           ! timestep                         
+  
+  REAL(dp), ALLOCATABLE :: mdiv(:)
+
+  ALLOCATE(mdiv(SIZE(m)))
+
+  mdiv(:) = 1 / m(:)
+  DO ix = 1 , 3
+    xyz(:,ix) = xyz(:,ix) + v(:,ix) * dt + 0.5 * a(:,ix) * dt * dt
+    v(:,ix)   = v(:,ix) + 0.5 * ((f(:,ix) * mdiv(:)) + a(:,ix)) * dt
+    a(:,ix)   = f(:,ix) * mdiv(:)
+  END DO
+
 END SUBROUTINE do_velVerlet 
   
 !########################################################## 
 !########################################################## 
 SUBROUTINE do_calcFrc(F, U, xyz, m, AtN, atNVec, nAt, EAMdata)
 !##########################################################    
+! calculate forces on atoms using EAM potntials on Ni-Co
+!##########################################################    
   IMPLICIT NONE
-  REAL(dp), ALLOCATABLE :: F(:,:)  &
-                         , U(:)      &
-                         , xyz(:,:)  &
-                         , m(:)      &
-                         , Ud(:)     &    
-                         , xyzd(:,:)
+
+  REAL(dp), ALLOCATABLE :: F(:,:)    &! Forces
+                         , U(:)      &! Potentials
+                         , xyz(:,:)  &! positions
+                         , m(:)      &! atomic masses
+                         , Ud(:)     &! difrentiated potential    
+                         , xyzd(:,:)  ! difrentiated positions
   REAL(dp) :: drdiv
   
   TYPE(EAM_data) :: EAMData 
@@ -202,8 +241,10 @@ SUBROUTINE do_calcFrc(F, U, xyz, m, AtN, atNVec, nAt, EAMdata)
   np = SIZE(xyz,1)
   ALLOCATE(Ud(np))
   ALLOCATE(xyzd(np,3))
+  
   U(:) = 0D0
   F(:,:) = 0D0
+  
   drdiv = 1D0/EAMdata%dr
   DO ix = 1, np
     CALL do_calcEAMPot( U(ix), ix, xyz, m, AtN, atNVec, nAt, EAMdata)
@@ -214,18 +255,23 @@ SUBROUTINE do_calcFrc(F, U, xyz, m, AtN, atNVec, nAt, EAMdata)
       F(ix,jx) = (Ud(ix) - U(ix)) * drdiv
     END DO
   END DO
- 
+
 END SUBROUTINE do_calcFrc
 
 !########################################################## 
 !########################################################## 
 RECURSIVE SUBROUTINE do_FixXYZ(xyz, V)
 !########################################################## 
+! periodic boundary condition :: recursive
+! toss atoms which leave the box inside 
+!########################################################## 
   IMPLICIT NONE
+
   REAL(dp) :: xyz(3) &! positions
-            , V        &! volume
-            , L         ! lenght
-  INTEGER :: ix 
+            , V      &! volume
+            , L       ! lenght of the box side
+
+  INTEGER :: ix ! counter
     
   L = V ** (1.0/3.0)
     DO ix=1, 3
@@ -246,27 +292,18 @@ RECURSIVE SUBROUTINE do_FixXYZ(xyz, V)
 
 END SUBROUTINE do_FixXYZ
 
-!REAL(dp) :: A(4,3)  
-!A(1,:)=(/1.2,-2.3,4.2/)
-!A(2,:)=(/2.2,1.2,-4.3/)
-!A(3,:)=(/1.2,1.2,10.0/)
-!A(4,:)=(/-1.5,-1.8,-4.1/)
-!PRINT*, '*******************original', tstp
-!PRINT*, A(1,:)
-!PRINT*, A(2,:)
-!PRINT*, A(3,:)
-!PRINT*, A(4,:)
-
-!########################################################## 
 !########################################################## 
 SUBROUTINE do_calcKin(K, m ,v)
+!########################################################## 
+! calculate kinetic energy of the system
 !########################################################## 
   IMPLICIT NONE
  
   REAL(dp) :: k     &! kinetic energy
             , m(:)  &! mass
             , v(:,:) ! velocity
-  INTEGER :: jx
+
+  INTEGER :: jx ! counter
 
   k = 0D0
   DO jx= 1, 3
@@ -275,28 +312,27 @@ SUBROUTINE do_calcKin(K, m ,v)
   
 END SUBROUTINE do_calcKin  
 
-!Print*, '(2)', kin		
-!    kin =0
-!    Kin =  sum(0.5 * AtMas(1:nPart) * sum(vel(1:nPart,1:3)**2)	  	) / npart
-!Print*, '(3)', kin	
-
 !########################################################## 
 !########################################################## 
 SUBROUTINE do_calcT(T, v, m)
 !##########################################################    
-    IMPLICIT NONE
-    REAL(dp):: v(:,:)    &
-             , v_sqr(SIZE(v,1)) &
-             , T        &
-             , m(:)
-    INTEGER :: dof &
-             , np  !
+! calculate temperature from velocity
+!##########################################################    
+  IMPLICIT NONE
 
-    np = SIZE(v,1)
-    v_sqr(:) = v(:,1)**2 + v(:,2)**2 + v(:,3)**2 
-    dof = 3 * np - 3
-    T = sum(m(:) * v_sqr(:))
-    T = T / (kb * dof) 
+  REAL(dp):: v(:,:)           &! velocities
+           , v_sqr(SIZE(v,1)) &! square of sime of xyz velocities
+           , T                &! temperature 
+           , m(:)              ! atomic masses  
+
+  INTEGER :: dof &! degrees of freedom
+           , np   ! number of particles
+
+  np = SIZE(v,1)
+  v_sqr(:) = v(:,1)**2 + v(:,2)**2 + v(:,3)**2 
+  dof = 3 * np - 3
+  T = sum(m(:) * v_sqr(:))
+  T = T / (kb * dof) 
 
 END SUBROUTINE do_calcT
 
@@ -304,19 +340,29 @@ END SUBROUTINE do_calcT
 !##########################################################
 SUBROUTINE do_calcEAMPot( U, ix, xyz, m, AtN, atNVec, nAt, EAMdata)
 !##########################################################
+! calculate EAM potentials of Ni -Co based on NIST databse
+! http://lammps.sandia.gov/doc/pair_eam.html
+!https://www.ctcms.nist.gov/potentials/Co.html
+!https://www.ctcms.nist.gov/potentials/Download/Ni-Al-Co-YM13/Mishin-Ni-Al-Co-2013.eam.alloy
+!##########################################################
   IMPLICIT NONE
   
-  REAL(dp), ALLOCATABLE :: xyz(:,:)  &
-                         , m(:)      
+  REAL(dp), ALLOCATABLE :: xyz(:,:)  &! positions
+                         , m(:)       ! atomic masses
   
-  TYPE(EAM_data) :: EAMData
+  TYPE(EAM_data) :: EAMData ! EAM potential parameters for Ni and Co
                   
-  REAL(dp) :: U, Rho, FxRho, Phi, r
+  REAL(dp) :: U      &! point potential
+            , Rho    &! atomic electron density 
+            , FxRho  &! embedding function * 
+            , Phi    &! pair potential interaction
+            , r      
   
-  INTEGER :: ix, jx, kx, np &
-           , ridx, rhoidx   &    
-           , nAt(:)         &!number of atoms of each epecies
-           , AtN(:)         &!atomic numbers A1,A2
+  INTEGER :: ix, jx, kx     &! counters
+           , np             &! bumber of particles 
+           , ridx, rhoidx   &! distance index, electron density index    
+           , nAt(:)         &! number of atoms of each epecies
+           , AtN(:)         &! atomic numbers A1,A2
            , atNVec(:)       ! A1,A1,... A2,A2....
 
   np = SIZE(xyz,1)
@@ -329,7 +375,10 @@ SUBROUTINE do_calcEAMPot( U, ix, xyz, m, AtN, atNVec, nAt, EAMdata)
     IF (ix/=jx) THEN
       r = sqrt( sum( (xyz(ix,:) - xyz(jx,:) ) ** 2 ) )
       ridx = floor(r / (EAMData%dr))
-      IF ( (0 < ridx) .AND. (ridx<=floor(EAMData%cutoff/EAMData%dr)) ) THEN
+      IF ( ( ridx <= 0) .or. (ridx>floor(EAMData%cutoff/EAMData%dr)) ) THEN
+         phi = 0D0
+         Rho = 0D0  
+      ELSE
         ! F1, Rho1 :: 28
         ! F2, Rho2 :: 27
         ! Phi11 = 28-28
@@ -357,13 +406,20 @@ SUBROUTINE do_calcEAMPot( U, ix, xyz, m, AtN, atNVec, nAt, EAMdata)
       END IF
     END IF
   END DO
-  rhoidx = floor(rho/(EAMData%drho)) 
-  IF (atNVec(ix)==atN(1)) THEN        ! 27 
-    FxRho = Rho * EAMData%F2(rhoidx)    ! F2  
-  ELSE                                ! 28
-    FxRho = Rho * EAMData%F1(rhoidx)    ! F1
-  END IF
+ 
 
+ 
+  rhoidx = floor(rho/(EAMData%drho)) 
+  IF ( ( rhoidx <= 0) .or. (rhoidx>floor(EAMData%cutoff/EAMData%dr)) ) THEN
+     FxRho = 0D0
+  ELSE
+    IF (atNVec(ix)==atN(1)) THEN        ! 27 
+      FxRho = EAMData%F2(rhoidx)          ! F2(rhoidx)  
+    ELSE                                ! 28
+      FxRho = EAMData%F1(rhoidx)          ! F1(rhoidx)
+    END IF
+  END IF
+  
   U =  FxRho + 0.5 * Phi
   
 END SUBROUTINE do_calcEAMPot
@@ -372,17 +428,18 @@ END SUBROUTINE do_calcEAMPot
 !##########################################################
 SUBROUTINE do_genRand(r,m,j)
 !##########################################################
+! Partly taken from web
+! generates a vector r(m) with random numbrs 
+!##########################################################
   IMPLICIT NONE
   
-  INTEGER :: i     &
-           , j     &
-           , m     &
-           , n     &
-           , clock
+  INTEGER :: i, j, n  &! counters 
+           , m        &! number of random numbers
+           , clock     ! system clock 
   
   INTEGER, ALLOCATABLE :: seed(:)
   
-  REAL(dp) :: r(m)
+  REAL(dp) :: r(m) ! vector of random numbers
     
   CALL RANDOM_SEED(SIZE=n)
   ALLOCATE(seed(n))
@@ -398,21 +455,22 @@ END SUBROUTINE do_genRand
 !########################################################## 
 !########################################################## 
 FUNCTION rand_normal2(n) 
-!##########################################################  
-  ! https://rosettacode.org/wiki/Random_numbers#Fortran 
-  ! Based on Box–Muller transform
-  ! More ifor in : 
-  ! http://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
-  ! https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+!##########################################################   
+! https://rosettacode.org/wiki/Random_numbers#Fortran 
+! Based on Box–Muller transform generates random numbers from a normal distribution
+! More ifor in : 
+! http://www.alanzucconi.com/2015/09/16/how-to-sample-from-a-gaussian-distribution/
+! https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform
+!##########################################################   
   IMPLICIT NONE
   INTEGER  :: i               & ! Loop variabel
             , n                 ! Lenght of array = number of random samples / from input
-  REAL(dp) :: array(n)        &
+  REAL(dp) :: array(n)        & 
             , rand_normal2(n) & ! Function Return :: dp random numbers
             , pi              & ! Pi number
             , temp            & ! just a holder
-            , mean = 0.0      & ! from http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html //equlized with randn function in matlab 
-            , sd = 1.0          ! from http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html //equlized with randn function in matlab 
+            , mean = 0.0      & ! http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html 
+            , sd = 1.0          ! http://edoras.sdsu.edu/doc/matlab/techdoc/ref/randn.html
     
   pi = 4.0*ATAN(1.0)
   CALL do_genRand(array,n,1)
@@ -431,31 +489,8 @@ FUNCTION rand_normal2(n)
 
 END FUNCTION rand_normal2
 
-
+!##########################################################   
+!##########################################################   
 END MODULE util
-
-
-!!!~!##########################################################   
-!!!~!##########################################################   
-!!!~SUBROUTINE do_fdmDiff(dfx, f, dx)
-!!!~!##########################################################    
-!!!~  IMPLICIT NONE
-!!!~  REAL(dp) :: f(:) &
-!!!~            , dx   &
-!!!~            , h
-!!!~  
-!!!~  REAL(dp), ALLOCATABLE :: dfx(:)
-!!!~  INTEGER :: L , ix
-!!!~  
-!!!~  L = SIZE(f,1)
-!!!~  ALLOCATE(dfx(1:L))
-!!!~  dfx(:) = 0.0
-!!!~  h = 1 / (2*dx)  
-!!!~  DO ix = 2, L-1
-!!!~    dfx(ix) = (f(ix+1)-f(ix-1)) * h
-!!!~  END DO
-!!!~  dfx(1) = dfx(2) 
-!!!~  dfx(L) = dfx(L-1)
-!!!~
-!!!~END SUBROUTINE do_fdmDiff
-!!!~!##########################################################    
+!##########################################################   
+!##########################################################   
