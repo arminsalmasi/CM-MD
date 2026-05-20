@@ -1,0 +1,4 @@
+## 2024-05-18 - Missing Input Validation in Fortran Simulation Parameters
+**Vulnerability:** Fortran simulation directly reads physical parameters (such as `Temp`, `nCo`, `nNi`, `V`, `dt`) using `READ(*,*)` from standard input without any validation. This can cause memory corruption (Negative array allocation via negative `nCo`/`nNi`) and Denial of Service (DoS) (Division by zero via zero or negative `dt`/`V`).
+**Learning:** Legacy Fortran applications often assume trusted input, leaving them susceptible to DoS and mathematical crashes when parameters are out of standard bounds or logically invalid.
+**Prevention:** Always validate all read values against logical physics boundaries (e.g. `nCo >= 0`, `nNi >= 0`, `nCo + nNi > 0`, `Temp >= 0`, `V > 0`, `dt > 0`) before using them in allocations or calculations. Fail securely by terminating early without exposing memory contents or detailed errors.
