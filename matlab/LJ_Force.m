@@ -15,7 +15,7 @@
                 % Fix according to periodic boundary conditions
                 dr = distPBC3D(dr,L);
                 % Get the distance squared
-                %dr2 = dot(dr,dr);
+                dr2 = dot(dr,dr);
     
                 % Lennard-Jones potential:
                 % U(r) = 4*epsilon* [(sigma/r)^12 - (sigma/r)^6]
@@ -34,10 +34,12 @@
                 % For efficiency, we will multiply by 48 only after summing
                 % up all the forces.
                     
-                %invDr2 = 1.0/dr2; % 1/r^2
-                %forceFact = invDr2^4 * (invDr2^3 - 0.5);
-                drsize = sqrt(dr(1)^2+dr(2)^2+dr(3)^2);
-                    forceFact = 2 * ( (sig/drsize)^13 - (sig/drsize)^7 );    
+                invDr2 = 1.0/dr2; % 1/r^2
+                invDr6 = invDr2^3;
+                invDr8 = invDr6 * invDr2;
+
+                % Use multiplicative inverses and r^2 to avoid slow sqrt() and fractional exponentiation
+                forceFact = invDr8 * ((sig^12) * invDr6 - 0.5 * (sig^6));
                 
                 % According to Newton's third law, we get action and
                 % reaction for the two particles.
@@ -48,6 +50,6 @@
         end
         
         % Multiply all forces by 48
-        forces = forces*48 * eps /sig;
+        forces = forces * 48 * eps;
     
     end
