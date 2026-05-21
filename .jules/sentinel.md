@@ -1,0 +1,4 @@
+## 2024-03-24 - [CRITICAL] Fortran Interactive Input Validation
+**Vulnerability:** The Fortran codebase uses interactive `READ(*,*)` commands to capture simulation parameters (like the number of atoms, simulation time, timestep, volume) without subsequent validation. This can easily lead to memory corruption (e.g., negative array allocation for atom arrays) or Denial of Service (DoS) conditions (e.g., divide-by-zero during physics calculations like `floor(t/dt)`).
+**Learning:** In legacy or scientific Fortran codebases, user input via interactive read lines is common, but basic sanitization is often skipped. In this environment, inputs directly drive low-level memory allocations and loop bounds.
+**Prevention:** Always validate interactive inputs in Fortran code (especially bounds checks on integers and positivity for time steps/volume/temperature) and `STOP` securely before executing allocations or calculations.
