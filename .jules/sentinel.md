@@ -1,0 +1,4 @@
+## 2024-05-24 - [CRITICAL] Fix memory corruption and DoS vulnerabilities in Fortran stdin inputs
+**Vulnerability:** The Fortran codebase read physical simulation parameters directly from standard input (e.g., via `READ(*,*)`) without validation.
+**Learning:** These unvalidated inputs could lead to Denial of Service (DoS) via division-by-zero or memory corruption via negative array allocations.
+**Prevention:** Always validate all numeric inputs coming from stdin or files, specifically checking for boundary conditions such as 0, negative sizes, and positive physical requirements (mass, time, etc.), and cleanly exit (`STOP 1`) when encountering bad input, without leaking internal details.
