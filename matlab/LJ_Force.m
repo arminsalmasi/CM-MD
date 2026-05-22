@@ -12,7 +12,7 @@
                 
                 % Calculate particle-particle distance
                 dr = Pos(i,:) - Pos(j,:);
-                % Fix according to periodic boundary conditions
+                % Apply periodic boundary conditions
                 dr = distPBC3D(dr,L);
                 % Get the distance squared
                 %dr2 = dot(dr,dr);
