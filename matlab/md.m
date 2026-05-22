@@ -207,39 +207,29 @@ function [ f, pot, kin ] = compute ( np, nd, pos, vel, mass )
 
   pot = 0.0;
 
-  for i = 1 : np
+  for i = 1 : np - 1
 %
 %  Compute the potential energy and forces.
 %
-    for j = 1 : np
+    for j = i + 1 : np
 
-      if ( i ~= j )
-
-        for k = 1 : nd
-          rij(k) = pos(k,i) - pos(k,j);
-        end
-
-        d = 0.0;
-        for k = 1 : nd
-          d = d + rij(k)^2;
-        end
-        d = sqrt ( d );
+      rij = pos(1:nd,i) - pos(1:nd,j);
+      d = sqrt ( sum ( rij.^2 ) );
 %
 %  Truncate the distance.
 %
-        d2 = min ( d, pi / 2.0 );
+      d2 = min ( d, pi / 2.0 );
 %
-%  Attribute half of the total potential energy to particle J.
+%  Add the full pairwise potential energy since we only calculate it once for the pair.
 %
-        pot = pot + 0.5 * sin ( d2 ) * sin ( d2 );
+      pot = pot + sin ( d2 ) * sin ( d2 );
 %
-%  Add particle J's contribution to the force on particle I.
+%  Add particle J's contribution to the force on particle I,
+%  and particle I's contribution to the force on particle J (Newton's 3rd Law).
 %
-        for k = 1 : nd
-          f(k,i) = f(k,i) - rij(k) * sin ( 2.0 * d2 ) / d;
-        end
-
-      end
+      forceFact = sin ( 2.0 * d2 ) / d;
+      f(1:nd,i) = f(1:nd,i) - rij * forceFact;
+      f(1:nd,j) = f(1:nd,j) + rij * forceFact;
 
     end
 
