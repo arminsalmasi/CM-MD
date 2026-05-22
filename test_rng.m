@@ -1,0 +1,2 @@
+rng('shuffle');
+disp(rng);

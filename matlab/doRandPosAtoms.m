@@ -1,5 +1,5 @@
 %% functin dorandPosAtoms - creats a vector which contains randomly
-  % distributed atomes based on types of atoms (atomic number) 
+  % distributed atomes based on types of atoms (atomic number)
 % created by Armin Salamsi
 % start date 2017-06-12
 
@@ -12,15 +12,24 @@
 
 %%
 function [timeSpaceVec] = doRandPosAtoms(timeSpaceVec);
-  
-  %% Randomise stream by system whall clock.
-  
-  RandStream.setGlobalStream(RandStream('mt19937ar','seed',...
-  sum(clock*100))); 
- 
+
+  %% Randomise stream securely.
+  % Security fix: Use java.security.SecureRandom instead of predictable sum(clock*100)
+  % to prevent DoS or simulation manipulation via predictable seed values.
+  try
+      secureRandom = java.security.SecureRandom();
+      % Generate 4 secure bytes and cast to uint32 for the seed
+      seedBytes = secureRandom.generateSeed(4);
+      seed = typecast(seedBytes, 'uint32');
+      RandStream.setGlobalStream(RandStream('mt19937ar', 'seed', seed));
+  catch
+      % Fallback to shuffle if Java is unavailable
+      rng('shuffle', 'twister');
+  end
+
   r = zeros ( timeSpaceVec.N, timeSpaceVec.ND );
   a = 0;
-  
+
   %% Loop over all atoms
   for j = 1 : timeSpaceVec.N
     for i = 1 : timeSpaceVec.ND
@@ -29,6 +38,5 @@ function [timeSpaceVec] = doRandPosAtoms(timeSpaceVec);
   end
   %% Report
   timeSpaceVec.aPos = r;
-  
-end
 
+end
