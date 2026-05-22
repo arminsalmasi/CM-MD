@@ -6,16 +6,24 @@
         % Get the number of particles
         nPart = size(Pos,1);
         
+        % Precalculate constants for performance
+        hL = L/2.0;
+        sig2 = sig*sig;
+
         % Loop over all particle pairs
         for i = 1:nPart-1
             for j = (i+1):nPart
                 
                 % Calculate particle-particle distance
                 dr = Pos(i,:) - Pos(j,:);
-                % Fix according to periodic boundary conditions
-                dr = distPBC3D(dr,L);
+
+                % Fix according to periodic boundary conditions (inlined)
+                if dr(1) > hL, dr(1) = dr(1) - L; elseif dr(1) < -hL, dr(1) = dr(1) + L; end
+                if dr(2) > hL, dr(2) = dr(2) - L; elseif dr(2) < -hL, dr(2) = dr(2) + L; end
+                if dr(3) > hL, dr(3) = dr(3) - L; elseif dr(3) < -hL, dr(3) = dr(3) + L; end
+
                 % Get the distance squared
-                %dr2 = dot(dr,dr);
+                dr2 = dr(1)^2 + dr(2)^2 + dr(3)^2;
     
                 % Lennard-Jones potential:
                 % U(r) = 4*epsilon* [(sigma/r)^12 - (sigma/r)^6]
@@ -36,8 +44,11 @@
                     
                 %invDr2 = 1.0/dr2; % 1/r^2
                 %forceFact = invDr2^4 * (invDr2^3 - 0.5);
-                drsize = sqrt(dr(1)^2+dr(2)^2+dr(3)^2);
-                    forceFact = 2 * ( (sig/drsize)^13 - (sig/drsize)^7 );    
+
+                % Performance optimization: avoid large exponents
+                invDr2 = sig2 / dr2;
+                invDr6 = invDr2 * invDr2 * invDr2;
+                forceFact = 2 * sqrt(invDr2) * invDr6 * (invDr6 - 1.0);
                 
                 % According to Newton's third law, we get action and
                 % reaction for the two particles.
