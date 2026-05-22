@@ -25,8 +25,8 @@ function [timeSpaceVec] = doFixCoM(timeSpaceVec)
   %% calculate velocity of center of mass
     vCoM = sum(vCoMtemp) / sum(timeSpaceVec.aMass);
     
-  %% Fix any center-of-mass drift V= V - VCoM  
-  %% Loop over all atoms and fix the center of mass
+  %% Remove any center-of-mass drift V= V - VCoM
+  %% Loop over all atoms and adjust the center of mass
     for i= 1 : timeSpaceVec.N                   %    
       timeSpaceVec.aVel(i,:) = timeSpaceVec.aVel(i,:) - vCoM;    
     end
