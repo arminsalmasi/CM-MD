@@ -25,7 +25,7 @@ function forces = LJ_Force(coords,L)
                 % Calculate particle-particle distance
                 dr = coords(:,partA) - coords(:,partB);
                 % Fix according to periodic boundary conditions
-                %dr = distPBC3D(dr,L);
+                dr = distPBC3D(dr,L);
                 % Get the distance squared
                 dr2 = dot(dr,dr);
     
@@ -61,3 +61,17 @@ function forces = LJ_Force(coords,L)
         forces = forces*48;
     
     end
+function vec = distPBC3D(vec, L)
+    % Calculate the half box size in each direction
+    hL = L/2.0;
+
+    % Distance vector should be in the range -hLx -> hLx and -hLy -> hLy
+    % Therefore, we need to apply the following changes if it's not in this range:
+    for dim=1:size(vec, 1)
+        if (vec(dim) > hL)
+            vec(dim) = vec(dim)-L;
+        elseif (vec(dim) < -hL)
+            vec(dim) = vec(dim)+L;
+        end
+    end
+end
