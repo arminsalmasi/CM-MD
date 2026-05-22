@@ -75,7 +75,7 @@
    %b-assign random distribution of velocities atomes bsed on Gausian
     %distribution which is generated based on the temperature and 
     %kinetic energy 
-    % fixing the center of mass
+    % correcting the center of mass
     % rescaling the velocities to fit with the prescribed temperature
   % 2- doMD loops over all time steps and return the results : timeSpaceVec
    %doMD contains: a-upadate of forces b-velocities c-coordinates
