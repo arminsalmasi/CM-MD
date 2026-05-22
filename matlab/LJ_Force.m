@@ -36,8 +36,11 @@
                     
                 %invDr2 = 1.0/dr2; % 1/r^2
                 %forceFact = invDr2^4 * (invDr2^3 - 0.5);
-                drsize = sqrt(dr(1)^2+dr(2)^2+dr(3)^2);
-                    forceFact = 2 * ( (sig/drsize)^13 - (sig/drsize)^7 );    
+                dr2 = dr(1)^2 + dr(2)^2 + dr(3)^2;
+                invR = sig / sqrt(dr2);
+                invR2 = invR * invR;
+                invR6 = invR2 * invR2 * invR2;
+                forceFact = 2 * invR * invR6 * (invR6 - 1.0);
                 
                 % According to Newton's third law, we get action and
                 % reaction for the two particles.
