@@ -16,9 +16,10 @@
       NA = 6.02214179e23; 
       % Boltzmann constant [m^2.kg.s^-2.K^-1]. 
       KB = 1.38064852e-23; 
-      % s = Randstream by system clock
+      % s = Randstream seeded securely
+      % Security fix: replaced predictable sum(100*clock) seed with 'shuffle'
       s = RandStream.setGlobalStream(RandStream('mt19937ar',...
-        'seed',sum(100*clock)));
+        'seed','shuffle'));
       % specification of elements from periodic table:
         % .textData = AtomicNumber ElementName
         % .Data = AtomicR IonicR CovalentR VanderWaalsR CrystalR MolarMass
