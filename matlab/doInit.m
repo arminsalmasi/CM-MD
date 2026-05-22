@@ -59,8 +59,8 @@ function [a] = doInit(a, V, N, ND, tstep, T);
       doTCalc(a) % calculate temperature from velocities
       
     
-    %% fix center of mass :Calcualte velocity of the center of mass 
-      % VCM = sum(mi*Vi)/sum(mi) then Fix any center-of-mass drift 
+    %% correct center of mass :Calcualte velocity of the center of mass
+      % VCM = sum(mi*Vi)/sum(mi) then correct any center-of-mass drift
       % V= V - VCoM
 
       [a] = doFixCoM(a);
