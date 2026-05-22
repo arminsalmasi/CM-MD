@@ -29,9 +29,7 @@ function [timeSpaceVec] = doScaleVel(timeSpaceVec)
       % number itteration
     while ( (abs(TCorrectionFactor)>0.1) && (n <1000) )
       vScale = sqrt(timeSpaceVec.T/Ttemp);
-      for i = 1:timeSpaceVec.N                          
-        timeSpaceVec.aVel(i,:) = timeSpaceVec.aVel(i,:)* vScale;    
-      end
+      timeSpaceVec.aVel = timeSpaceVec.aVel * vScale;
       Ttemp = doTCalc(timeSpaceVec);
       TCorrectionFactor = ((timeSpaceVec.T-Ttemp)/timeSpaceVec.T)*100;
       n = n+1;
