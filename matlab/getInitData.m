@@ -31,6 +31,4 @@ function [ N X T t dt aTyp V ND] = getInitData
     % Number of dimenstions
     ND = 3;
   
-%x = input(prompt)
-%str = input(prompt,'s')
 end
