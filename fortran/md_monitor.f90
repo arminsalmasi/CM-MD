@@ -17,14 +17,14 @@ CONTAINS
 !###############################################################################################
 SUBROUTINE get_input(t, dt, Temp, V, nTstps, sampInt, nP, nSp, nAt, atNums, atNumsVec, atMas)
 !###############################################################################################
-! Read input data from monitor: 
+! Read input data from monitor:
 ! simulation time, timestep, interval between saving samples: seconds
 ! temperature: kelvin
-! number of atoms, number of atomes of each typs (nCo and nNi) 
+! number of atoms, number of atomes of each typs (nCo and nNi)
 ! Volume : in Angstrom^3
 !###############################################################################################
-  IMPLICIT NONE     
-  
+  IMPLICIT NONE
+
   REAL(dp):: t       &! simulation time [sec]
            , dt      &! timestep [sec]
            , Temp    &! Tempereture [kelvin]
@@ -32,21 +32,21 @@ SUBROUTINE get_input(t, dt, Temp, V, nTstps, sampInt, nP, nSp, nAt, atNums, atNu
            , V        ! Volume of the simulation box [angstrom^3]
 
   REAL(dp), ALLOCATABLE :: atMas(:)  ! atomic mass of species [gram]
-   
+
   INTEGER :: nP      &! total number of atoms in the system
            , nSp     &! number of species in the system
            , nTstps  &! total number of timesteps
            , nCo     &! number of Co atoms
            , nNi      ! number of Ni atoms
-     
-  INTEGER, ALLOCATABLE :: atNums(:)    &! contains atomic numbers of species A1, A2, ... 
-                        , atNumsVec(:) &! A1,A1,A1,....; A2,A2,A2... 
+
+  INTEGER, ALLOCATABLE :: atNums(:)    &! contains atomic numbers of species A1, A2, ...
+                        , atNumsVec(:) &! A1,A1,A1,....; A2,A2,A2...
                         , nAt(:)        ! contains numbers of atoms of each species n1, n2 ,..
 
   WRITE(*,*) "******************************************************************************************"
   WRITE(*,*) " Program MD  "
   WRITE(*,*) " a fortran code for a simple Molocular Dynamics simulation of Ni, Co alloy using          "
-  WRITE(*,*) " EAM potentials from NIST EAM repository:                                                 " 
+  WRITE(*,*) " EAM potentials from NIST EAM repository:                                                 "
   WRITE(*,*) " https://www.ctcms.nist.gov/potentials/Co-Ni.html                                         "
   WRITE(*,*) " Potential data is tabulated by Y. Mishin (George Mason Univ.) on 17 Sept. 2013           "
   WRITE(*,*) " and was posted on 17 Jan. 2014. This version is compatible with LAMMPS and The reference "
@@ -54,13 +54,13 @@ SUBROUTINE get_input(t, dt, Temp, V, nTstps, sampInt, nP, nSp, nAt, atNums, atNu
   WRITE(*,*) " Format: EAM/alloy setfl                                                                  "
   WRITE(*,*) " https://www.ctcms.nist.gov/potentials/Download/Ni-Al-Co-YM13/Mishin-Ni-Co-2013.eam.alloy "
   WRITE(*,*) " This code is implemented by Armin Salmasi at KTH, Stockholm,Sweden in 2017               "
-  WRITE(*,*) " Feel free to use any part of this code.                                                  "  
+  WRITE(*,*) " Feel free to use any part of this code.                                                  "
   WRITE(*,*) "******************************************************************************************"
-  t  = 1e-10         
-  dt = 1e-15         
-  Temp =273.15       
-  sampInt =1e-14     
-  V = 109.595564966  
+  t  = 1e-10
+  dt = 1e-15
+  Temp =273.15
+  sampInt =1e-14
+  V = 109.595564966
   nCo = 5
   nNi = 5
 
@@ -73,53 +73,53 @@ SUBROUTINE get_input(t, dt, Temp, V, nTstps, sampInt, nP, nSp, nAt, atNums, atNu
   WRITE(*,*) ""
   WRITE(*,*) 'enter number of Co atoms/5/:'
   READ(*,*) , nCo ! make sure it is integer
-  
+
   WRITE(*,*) ""
   WRITE(*,*) 'enter number of Ni atoms/5/:'
   READ(*,*) , nNi ! make sure it is integer
-  
+
   WRITE(*,*) ""
   WRITE(*,*) 'Use ThermoCalc to calulate molar volume of the composition in m^3'
   WRITE(*,*) 'molar volume * (total number of atoms * 10^30 / avogadro number)'
   WRITE(*,*) 'enter volume of the cell in Ang^3 /109.595564966/:'
-  READ(*,*) , V  != (6.6e-6 / 6.0221415e23) * 10 * 1e30 !m3 / avogadro# * #atoms * #toAngstrom^3 
+  READ(*,*) , V  != (6.6e-6 / 6.0221415e23) * 10 * 1e30 !m3 / avogadro# * #atoms * #toAngstrom^3
   V = V * 1D0 ! make sure it is dp float
-  
+
   WRITE(*,*) ""
   WRITE(*,*) 'enter simulation time in seconds/1e-10/:'
   READ(*,*) , t ! make sure it is dp float
   t= t *1D0
-  
+
   WRITE(*,*) ""
   WRITE(*,*) 'enter timestep lenght in seconds/1e-15/:'
-  READ(*,*) , dt 
+  READ(*,*) , dt
   dt= dt *1d0 ! make sure it is dp float
-  
+
   WRITE(*,*) ""
   WRITE(*,*) 'enter interval between saves in seconds/1e-13/:'
   READ(*,*) , sampInt
   sampInt = sampInt * 1D0
   WRITE(*,*) ""
-  
+
   nTstps = floor(t/dt)
   WRITE(*,*) 'number of timesteps is: ', nTstps
-  
-  nSp = 2 
-  
+
+  nSp = 2
+
   ALLOCATE(nAt(nSp))
-  nAt = (/nCo, nNi/)  
+  nAt = (/nCo, nNi/)
   np = SUM(nAt)
-      
-  ALLOCATE(atNums(nSp)) 
-  ALLOCATE(atNumsVec(np)) 
+
+  ALLOCATE(atNums(nSp))
+  ALLOCATE(atNumsVec(np))
   atNums = (/27, 28/)                   ! 27=Co, 28=Ni
   atNumsVec(1:nAt(1))     = atNums(1)
   atNumsVec(nAt(1)+1: nP) = atNums(2)
-      
+
   ALLOCATE(atMas(nP))
   atMas(1:nAt(1))     = 9.786093775e-23 ! Co
   atMas(nAt(1)+1: nP) = 9.746275017e-23 ! gr - Ni
-  
+
 END SUBROUTINE get_input
 !###############################################################################################
 !###############################################################################################
@@ -130,7 +130,7 @@ SUBROUTINE do_get_EAMPotData(EAMdata)
 ! File contains:
 ! 5000 elements F of Ni,
 ! 5000 elemnts Rho of Ni,
-! 5000 elements F of Co, 
+! 5000 elements F of Co,
 ! 5000 elements Rho of Co,
 ! 5000 elements phi if Ni-Ni
 ! 5000 elements phi of Ni-co
@@ -139,17 +139,18 @@ SUBROUTINE do_get_EAMPotData(EAMdata)
    IMPLICIT NONE
    INTEGER :: nrho       &
             , nr         &
-            , ix, jx, kx
-   
+            , ix, jx, kx &
+            , ios
+
    REAL(dp), ALLOCATABLE :: allData(:,:)    &
-                          , allData_line(:) 
-   
-   TYPE(EAM_data) :: EAMdata 
-   
-   EAMdata%nrho   = 5000 
-   EAMdata%drho   = 1.2999078e-03 
-   EAMdata%nr     = 5000 
-   EAMdata%dr     = 1.2999078e-03 
+                          , allData_line(:)
+
+   TYPE(EAM_data) :: EAMdata
+
+   EAMdata%nrho   = 5000
+   EAMdata%drho   = 1.2999078e-03
+   EAMdata%nr     = 5000
+   EAMdata%dr     = 1.2999078e-03
    EAMdata%cutoff = 6.499539
 
    ALLOCATE(allData(1:7000, 1:5))
@@ -163,10 +164,18 @@ SUBROUTINE do_get_EAMPotData(EAMdata)
    ALLOCATE(EAMdata%phi21(nr))
    ALLOCATE(EAMdata%phi22(nr))
 
-! read all data from the file to a 35000*5 matrix 
-   OPEN(UNIT=22,FILE="pot-Ni-Co-old.dat",FORM="FORMATTED",STATUS="OLD",ACTION="READ")
+! read all data from the file to a 35000*5 matrix
+   OPEN(UNIT=22,FILE="pot-Ni-Co-old.dat",FORM="FORMATTED",STATUS="OLD",ACTION="READ",IOSTAT=ios)
+   IF (ios /= 0) THEN
+     WRITE(*,*) "Error: Failed to open potential data file securely. Ensure the file exists."
+     STOP
+   END IF
      DO ix = 1 , 7000
-       READ(22,*) allData(ix,:)
+       READ(22,*,IOSTAT=ios) allData(ix,:)
+       IF (ios /= 0) THEN
+         WRITE(*,*) "Error: Error reading potential data securely from file."
+         STOP
+       END IF
      END DO
    CLOSE(UNIT=22)
 
@@ -179,7 +188,7 @@ SUBROUTINE do_get_EAMPotData(EAMdata)
      END DO
    END DO
 
-! put data in variables to pass to the main   
+! put data in variables to pass to the main
    EAMdata%F1    = allData_line(1:5000)
    EAMdata%rho1  = allData_line(5001:10000)
    EAMdata%F2    = allData_line(10001:15000)
@@ -198,13 +207,13 @@ SUBROUTINE put_SampsToFiles(samp, nPart, nSpcis, atNums, nAtms, Temp, vol, t, dt
                             , smpInt, sampK)
 !###############################################################################################
 ! Write simultion results from timestep samples to files:
-! dat.md: # of atoms, # of species, # Atoms of each species, # of samples   
+! dat.md: # of atoms, # of species, # Atoms of each species, # of samples
 ! xyz.md: line#, sample#, atom#, sample time, x, y, z    of (atom#)
-! vel.md: line#, sample#, atom#, sample time, Vx, Vy, Vz of (atom#)   
-! acc.md: line#, sample#, atom#, sample time, ax, ay, az of (atom#)   
-! frc.md: line#, sample#, atom#, sample time, fx, fy, fz of (atom#)   
-! pot.md: line#, sample#, atom#, sample time, EAM        of (atom#)   
-! erg.md: line#, sample#, sample time, total energy, kinetic energy, potential energy, error  
+! vel.md: line#, sample#, atom#, sample time, Vx, Vy, Vz of (atom#)
+! acc.md: line#, sample#, atom#, sample time, ax, ay, az of (atom#)
+! frc.md: line#, sample#, atom#, sample time, fx, fy, fz of (atom#)
+! pot.md: line#, sample#, atom#, sample time, EAM        of (atom#)
+! erg.md: line#, sample#, sample time, total energy, kinetic energy, potential energy, error
 ! grl.md: general information
 !###############################################################################################
   IMPLICIT NONE
@@ -212,7 +221,7 @@ SUBROUTINE put_SampsToFiles(samp, nPart, nSpcis, atNums, nAtms, Temp, vol, t, dt
   INTEGER :: jx, ix, l, k , nPart, nSpcis, nTstps, sampK, atNums(:), nAtms(:)
 
   REAL(dp) :: Temp, vol, t, dt, smpInt
-  
+
   TYPE(timestep_sample) :: samp(:)
   open(unit=27, file="dat.md", action="write", status="replace")
   open(unit=26, file="grl.md", action="write", status="replace")
@@ -222,7 +231,7 @@ SUBROUTINE put_SampsToFiles(samp, nPart, nSpcis, atNums, nAtms, Temp, vol, t, dt
   open(unit=22, file="acc.md", action="write", status="replace")
   open(unit=21, file="vel.md", action="write", status="replace")
   open(unit=20, file="xyz.md", action="write", status="replace")
-  
+
   write(26,*), '******************************************************************************'
   write(26,*), 'All values are sorted by atomic numbers of species (ascending)'
   write(26,*), '******************************************************************************'
@@ -251,8 +260,8 @@ SUBROUTINE put_SampsToFiles(samp, nPart, nSpcis, atNums, nAtms, Temp, vol, t, dt
   write(26,*), "line#	 ", "sample#	 ","time[sec]	 ", "Total Energy [ev]	 ", &
                 "kinetic Energy [ev]	 ","Potential Energy [ev]	 ", "Relative erroror"
   write(26,*), '******************************************************************************'
-  
-  
+
+
   k = 1
   DO jx = 1, nPart
     DO ix = 1, sampK
@@ -268,11 +277,11 @@ SUBROUTINE put_SampsToFiles(samp, nPart, nSpcis, atNums, nAtms, Temp, vol, t, dt
   k = 1
   DO ix = 1, sampK
     WRITE(25,*), k, ix, samp(ix)%time,  samp(ix)%E, samp(ix)%Kin, samp(ix)%E - samp(ix)%Kin  , samp(ix)%error
-    k = k+1                   
+    k = k+1
   END DO
-  
+
   write(27,*), nPart, nSpcis, nAtms, sampk
-  
+
   CLOSE(UNIT=20)
   CLOSE(UNIT=21)
   CLOSE(UNIT=22)
@@ -281,11 +290,10 @@ SUBROUTINE put_SampsToFiles(samp, nPart, nSpcis, atNums, nAtms, Temp, vol, t, dt
   CLOSE(UNIT=25)
   CLOSE(UNIT=26)
   CLOSE(UNIT=27)
-  
-END SUBROUTINE put_SampsToFiles  
+
+END SUBROUTINE put_SampsToFiles
 
 !###############################################################################################
 !###############################################################################################
 END MODULE io
 !###############################################################################################
-
