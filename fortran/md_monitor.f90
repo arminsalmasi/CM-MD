@@ -188,6 +188,9 @@ SUBROUTINE do_get_EAMPotData(EAMdata)
    EAMdata%phi21 = allData_line(25001:30000)
    EAMdata%phi22 = allData_line(30001:35000)
 
+   DEALLOCATE(allData)
+   DEALLOCATE(allData_line)
+
 END SUBROUTINE do_get_EAMPotData
 
 !###############################################################################################
